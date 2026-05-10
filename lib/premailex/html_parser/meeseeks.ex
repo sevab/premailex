@@ -1,6 +1,16 @@
 if Code.ensure_loaded?(Meeseeks) do
   defmodule Premailex.HTMLParser.Meeseeks do
-    @moduledoc false
+    @moduledoc """
+    HTML parser implementation using Meeseeks.
+
+    Add `:meeseeks` to your dependencies in `mix.exs` to use this parser:
+
+        defp deps do
+          [
+            {:meeseeks, "~> 0.11"}
+          ]
+        end
+    """
 
     require Logger
 

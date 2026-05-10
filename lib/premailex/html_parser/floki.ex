@@ -1,6 +1,16 @@
 if Code.ensure_loaded?(Floki) do
   defmodule Premailex.HTMLParser.Floki do
-    @moduledoc false
+    @moduledoc """
+    HTML parser implementation using Floki.
+
+    Add `:floki` to your dependencies in `mix.exs` to use this parser:
+
+        defp deps do
+          [
+            {:floki, "~> 0.19"}
+          ]
+        end
+    """
     alias Premailex.HTMLParser
 
     @behaviour HTMLParser
