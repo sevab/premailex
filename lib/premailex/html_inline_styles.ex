@@ -7,7 +7,7 @@ defmodule Premailex.HTMLInlineStyles do
   alias Premailex.{CSSParser, HTMLParser, Util}
 
   @type html_or_html_tree() :: String.t() | HTMLParser.html_tree()
-  @type css_rule_sets_or_options() :: [CSSParser.rule_set()] | keyword()
+  @type css_rules_or_options() :: [CSSParser.rule()] | keyword()
 
   @doc """
   Processes an HTML string adding inline styles.
@@ -19,36 +19,36 @@ defmodule Premailex.HTMLInlineStyles do
       * `:all` - apply all optimization steps
       * `:remove_style_tags` - Remove style tags (can be combined in a list)
   """
-  @spec process(html_or_html_tree(), css_rule_sets_or_options() | nil, keyword() | nil) ::
+  @spec process(html_or_html_tree(), css_rules_or_options() | nil, keyword() | nil) ::
           String.t()
-  def process(html_or_tree, css_rule_sets_or_options \\ nil, options \\ nil)
+  def process(html_or_tree, css_rules_or_options \\ nil, options \\ nil)
 
-  def process(html, css_rule_sets_or_options, options) when is_binary(html) do
+  def process(html, css_rules_or_options, options) when is_binary(html) do
     html
     |> HTMLParser.parse()
-    |> process(css_rule_sets_or_options, options)
+    |> process(css_rules_or_options, options)
   end
 
-  def process(tree, css_rule_sets_or_options, nil) do
-    case Keyword.keyword?(css_rule_sets_or_options) do
-      true -> process(tree, nil, css_rule_sets_or_options)
-      false -> process(tree, css_rule_sets_or_options, [])
+  def process(tree, css_rules_or_options, nil) do
+    case Keyword.keyword?(css_rules_or_options) do
+      true -> process(tree, nil, css_rules_or_options)
+      false -> process(tree, css_rules_or_options, [])
     end
   end
 
   def process(tree, nil, options) do
     css_selector = Keyword.get(options, :css_selector, "style,link[rel=\"stylesheet\"][href]")
-    css_rule_sets = load_styles(tree, css_selector)
+    css_rules = load_styles(tree, css_selector)
     options = Keyword.put_new(options, :css_selector, css_selector)
 
-    process(tree, css_rule_sets, options)
+    process(tree, css_rules, options)
   end
 
-  def process(tree, css_rules_sets, options) do
+  def process(tree, css_rules, options) do
     optimize_steps = Keyword.get(options, :optimize, :none)
     optimize_options = Keyword.take(options, [:css_selector])
 
-    css_rules_sets
+    css_rules
     |> apply_styles(tree)
     |> normalize_styles()
     |> optimize(optimize_steps, optimize_options)
@@ -125,23 +125,30 @@ defmodule Premailex.HTMLInlineStyles do
     nil
   end
 
-  defp add_rules_to_html_tree(%{selector: selector, rules: rules, specificity: specificity}, tree) do
+  defp add_rules_to_html_tree(
+         %{selector: selector, declarations: declarations, specificity: specificity},
+         tree
+       ) do
     tree
     |> HTMLParser.all(selector)
-    |> Enum.reduce(tree, &update_style_for_html_tree(&2, &1, rules, specificity))
+    |> Enum.reduce(tree, &update_style_for_html_tree(&2, &1, declarations, specificity))
   end
 
-  defp update_style_for_html_tree(tree, needle, rules, specificity) do
-    Util.traverse_until_first(tree, needle, &update_style_for_element(&1, rules, specificity))
+  defp update_style_for_html_tree(tree, needle, declarations, specificity) do
+    Util.traverse_until_first(
+      tree,
+      needle,
+      &update_style_for_element(&1, declarations, specificity)
+    )
   end
 
-  defp update_style_for_element({name, attrs, children}, rules, specificity) do
+  defp update_style_for_element({name, attrs, children}, declarations, specificity) do
     style =
       attrs
       |> Enum.into(%{})
       |> Map.get("style", nil)
       |> set_inline_style_specificity()
-      |> add_styles_with_specificity(rules, specificity)
+      |> add_styles_with_specificity(declarations, specificity)
 
     {name, put_style_attr(attrs, style), children}
   end
@@ -152,10 +159,19 @@ defmodule Premailex.HTMLInlineStyles do
 
   defp set_inline_style_specificity(nil), do: ""
   defp set_inline_style_specificity("[SPEC=" <> _rest = style), do: style
-  defp set_inline_style_specificity(style), do: "[SPEC=1000[#{style}]]"
 
-  defp add_styles_with_specificity(style, rules, specificity) do
-    "#{style}[SPEC=#{specificity}[#{CSSParser.to_string(rules)}]]"
+  defp set_inline_style_specificity(style),
+    do: "[SPEC=#{format_specificity({1, 0, 0, 0})}[#{style}]]"
+
+  defp add_styles_with_specificity(style, declarations, specificity) do
+    "#{style}[SPEC=#{format_specificity(specificity)}[#{CSSParser.to_string(declarations)}]]"
+  end
+
+  defp format_specificity({a, b, c, d}), do: "#{a}.#{b}.#{c}.#{d}"
+
+  defp parse_specificity(str) do
+    [a, b, c, d] = str |> String.split(".") |> Enum.map(&String.to_integer/1)
+    {a, b, c, d}
   end
 
   defp normalize_styles(tree) do
@@ -175,10 +191,13 @@ defmodule Premailex.HTMLInlineStyles do
       |> Map.get("style")
 
     style =
-      ~r/\[SPEC\=([\d]+)\[(.[^\]\]]*)\]\]/
+      ~r/\[SPEC\=(\d+\.\d+\.\d+\.\d+)\[(.[^\]\]]*)\]\]/
       |> Regex.scan(current_style)
-      |> Enum.map(fn [_, specificity, rule] ->
-        %{specificity: specificity, rules: CSSParser.parse_rules(rule)}
+      |> Enum.map(fn [_, specificity, declaration_block] ->
+        %{
+          specificity: parse_specificity(specificity),
+          declarations: CSSParser.parse_declaration_block(declaration_block)
+        }
       end)
       |> CSSParser.merge()
       |> CSSParser.to_string()
