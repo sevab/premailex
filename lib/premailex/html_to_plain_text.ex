@@ -15,7 +15,7 @@ defmodule Premailex.HTMLToPlainText do
       "* Test"
 
   """
-  @spec process(String.t() | Util.html_tree()) :: String.t()
+  @spec process(String.t() | HTMLParser.html_tree()) :: String.t()
   def process(html) when is_binary(html) do
     html
     |> HTMLParser.parse()
@@ -40,7 +40,7 @@ defmodule Premailex.HTMLToPlainText do
     |> String.trim()
   end
 
-  defp images(html), do: Util.traverse(html, "img", &image(&1))
+  defp images(tree), do: Util.traverse(tree, "img", &image(&1))
 
   defp image({_, attr, _}) do
     attr
@@ -48,10 +48,10 @@ defmodule Premailex.HTMLToPlainText do
     |> elem(1)
   end
 
-  defp line_breaks(html), do: Util.traverse(html, "br", &line_break(&1))
+  defp line_breaks(tree), do: Util.traverse(tree, "br", &line_break(&1))
   defp line_break(_), do: "\n"
 
-  defp headings(html), do: Util.traverse(html, Enum.map(1..6, &"h#{&1}"), &heading(&1))
+  defp headings(tree), do: Util.traverse(tree, Enum.map(1..6, &"h#{&1}"), &heading(&1))
 
   defp heading({type, _, content}) do
     text = HTMLParser.text(content)
@@ -80,7 +80,7 @@ defmodule Premailex.HTMLToPlainText do
     text <> "\n" <> heading_line
   end
 
-  defp links(html), do: Util.traverse(html, "a", &link(&1))
+  defp links(tree), do: Util.traverse(tree, "a", &link(&1))
 
   defp link({_, attr, content}) do
     url =
@@ -99,14 +99,14 @@ defmodule Premailex.HTMLToPlainText do
   defp link(url, _, true), do: url
   defp link(url, text, false), do: "#{text} (#{url})"
 
-  defp paragraphs(html), do: Util.traverse(html, "p", &paragraph(&1))
+  defp paragraphs(tree), do: Util.traverse(tree, "p", &paragraph(&1))
   defp paragraph({_, _, content}), do: HTMLParser.text(content) <> "\n\n"
 
-  defp horizontal_rules(html), do: Util.traverse(html, "hr", &horizontal_rule(&1))
+  defp horizontal_rules(tree), do: Util.traverse(tree, "hr", &horizontal_rule(&1))
 
   defp horizontal_rule({_, _, _}), do: String.duplicate("-", @line_length) <> "\n\n"
 
-  defp unordered_lists(html), do: Util.traverse(html, "ul", &unordered_list_items(&1))
+  defp unordered_lists(tree), do: Util.traverse(tree, "ul", &unordered_list_items(&1))
 
   defp unordered_list_items({_, _, items}) do
     items
@@ -131,7 +131,7 @@ defmodule Premailex.HTMLToPlainText do
     end)
   end
 
-  defp ordered_lists(html), do: Util.traverse(html, "ol", &ordered_list_items(&1))
+  defp ordered_lists(tree), do: Util.traverse(tree, "ol", &ordered_list_items(&1))
 
   defp ordered_list_items({_, _, items}) do
     items
@@ -144,7 +144,7 @@ defmodule Premailex.HTMLToPlainText do
     "#{acc + 1}. " <> HTMLParser.text(content) <> "\n"
   end
 
-  defp tables(html), do: Util.traverse(html, "table", &table(&1))
+  defp tables(tree), do: Util.traverse(tree, "table", &table(&1))
 
   defp table({_, _, table_rows}) do
     # Calling tables/1 to make sure all nested tables have been processed

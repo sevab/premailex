@@ -3,7 +3,7 @@ defmodule Premailex.UtilTest do
   doctest Premailex.Util
 
   test "traverse_until_first/3 deep nested" do
-    html =
+    tree =
       {"div", [],
        [
          {"div", [], [{"p", [], ["Paragraph"]}, {"p", [], ["Paragraph"]}]},
@@ -13,7 +13,7 @@ defmodule Premailex.UtilTest do
     needle = {"p", [], ["Paragraph"]}
 
     result =
-      Premailex.Util.traverse_until_first(html, needle, fn {name, attrs, _children} ->
+      Premailex.Util.traverse_until_first(tree, needle, fn {name, attrs, _children} ->
         {name, attrs, ["Updated"]}
       end)
 

@@ -228,30 +228,35 @@ defmodule Premailex.HTMLInlineStylesTest do
 
   test "process/3 with optimize: :all", %{input: input} do
     parsed = Premailex.HTMLInlineStyles.process(input, optimize: :all)
+
     refute parsed =~ "<style>"
     refute parsed =~ "<link href"
   end
 
   test "process/3 with optimize: :remove_style_tags", %{input: input} do
     parsed = Premailex.HTMLInlineStyles.process(input, optimize: :remove_style_tags)
+
     refute parsed =~ "<style>"
     refute parsed =~ "<link href"
   end
 
   test "process/3 with optimize: [:remove_style_tags]", %{input: input} do
     parsed = Premailex.HTMLInlineStyles.process(input, optimize: [:remove_style_tags])
+
     refute parsed =~ "<style>"
     refute parsed =~ "<link href"
   end
 
   test "process/3 with optimize: [:unknown]", %{input: input} do
     parsed = Premailex.HTMLInlineStyles.process(input, optimize: [:unknown])
+
     assert parsed =~ "<style>"
     assert parsed =~ "<link href"
   end
 
   test "process/3 with optimize: [:none]", %{input: input} do
     parsed = Premailex.HTMLInlineStyles.process(input, optimize: :none)
+
     assert parsed =~ "<style>"
     assert parsed =~ "<link href"
   end
@@ -259,12 +264,15 @@ defmodule Premailex.HTMLInlineStylesTest do
   @tag test_server: false
   test "process/3 with no loaded styles" do
     parsed = Premailex.HTMLInlineStyles.process("<span style=\"width: 100%;\">Hello</span>")
+
     assert parsed =~ "<span style=\"width: 100%;\">Hello</span>"
   end
 
   test "process/3 accepts html tree as first argument", %{input: input} do
-    html_tree = Premailex.HTMLParser.parse(input)
-    parsed = Premailex.HTMLInlineStyles.process(html_tree)
+    parsed =
+      input
+      |> Premailex.HTMLParser.parse()
+      |> Premailex.HTMLInlineStyles.process()
 
     assert parsed =~ "<html xmlns=\"http://www.w3.org/1999/xhtml\" style=\"color: black;\">"
     assert parsed =~ "<style>"
@@ -275,8 +283,10 @@ defmodule Premailex.HTMLInlineStylesTest do
   end
 
   test "process/3 accepts html tree as first argument and options as second", %{input: input} do
-    html_tree = Premailex.HTMLParser.parse(input)
-    parsed = Premailex.HTMLInlineStyles.process(html_tree, optimize: :all)
+    parsed =
+      input
+      |> Premailex.HTMLParser.parse()
+      |> Premailex.HTMLInlineStyles.process(optimize: :all)
 
     assert parsed =~ "<html xmlns=\"http://www.w3.org/1999/xhtml\" style=\"color: black;\">"
     refute parsed =~ "<style>"
