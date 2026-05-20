@@ -10,7 +10,9 @@ defmodule Premailex.HTMLParser do
       config :premailex, html_parser: Premailex.HTMLParser.LazyHTML
   """
 
-  @type html_tree :: tuple() | list()
+  @type html_element :: {binary(), list({binary(), binary()}), list(html_node())}
+  @type html_node :: html_element() | {:comment, binary()} | binary()
+  @type html_tree :: html_node() | list(html_node())
   @type selector :: binary()
 
   @callback parse(binary()) :: html_tree()

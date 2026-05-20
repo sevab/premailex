@@ -21,7 +21,7 @@ defmodule Premailex.HTMLInlineStyles do
   """
   @spec process(html_or_html_tree(), css_rule_sets_or_options() | nil, keyword() | nil) ::
           String.t()
-  def process(html_or_html_tree, css_rule_sets_or_options \\ nil, options \\ nil)
+  def process(html_or_tree, css_rule_sets_or_options \\ nil, options \\ nil)
 
   def process(html, css_rule_sets_or_options, options) when is_binary(html) do
     html
@@ -29,27 +29,27 @@ defmodule Premailex.HTMLInlineStyles do
     |> process(css_rule_sets_or_options, options)
   end
 
-  def process(html_tree, css_rule_sets_or_options, nil) do
+  def process(tree, css_rule_sets_or_options, nil) do
     case Keyword.keyword?(css_rule_sets_or_options) do
-      true -> process(html_tree, nil, css_rule_sets_or_options)
-      false -> process(html_tree, css_rule_sets_or_options, [])
+      true -> process(tree, nil, css_rule_sets_or_options)
+      false -> process(tree, css_rule_sets_or_options, [])
     end
   end
 
-  def process(html_tree, nil, options) do
+  def process(tree, nil, options) do
     css_selector = Keyword.get(options, :css_selector, "style,link[rel=\"stylesheet\"][href]")
-    css_rule_sets = load_styles(html_tree, css_selector)
+    css_rule_sets = load_styles(tree, css_selector)
     options = Keyword.put_new(options, :css_selector, css_selector)
 
-    process(html_tree, css_rule_sets, options)
+    process(tree, css_rule_sets, options)
   end
 
-  def process(html_tree, css_rules_sets, options) do
+  def process(tree, css_rules_sets, options) do
     optimize_steps = Keyword.get(options, :optimize, :none)
     optimize_options = Keyword.take(options, [:css_selector])
 
     css_rules_sets
-    |> apply_styles(html_tree)
+    |> apply_styles(tree)
     |> normalize_styles()
     |> optimize(optimize_steps, optimize_options)
     |> remove_empty_comments()
@@ -64,9 +64,9 @@ defmodule Premailex.HTMLInlineStyles do
     |> Enum.reduce([], &Enum.concat(&1, &2))
   end
 
-  defp apply_styles(styles, html_tree) do
+  defp apply_styles(styles, tree) do
     hidden_elements =
-      html_tree
+      tree
       |> HTMLParser.all("head")
       |> Enum.reduce([], fn element, acc ->
         index = to_string(length(acc))
@@ -74,14 +74,13 @@ defmodule Premailex.HTMLInlineStyles do
         acc ++ [{index, element, {"premailex", [{"data-index", index}], []}}]
       end)
 
-    visible_html_tree =
-      Enum.reduce(hidden_elements, html_tree, fn {_index, hidden_element, placeholder},
-                                                 html_tree ->
-        Util.traverse_until_first(html_tree, hidden_element, fn _element -> placeholder end)
+    visible_tree =
+      Enum.reduce(hidden_elements, tree, fn {_index, hidden_element, placeholder}, tree ->
+        Util.traverse_until_first(tree, hidden_element, fn _element -> placeholder end)
       end)
 
     styles
-    |> Enum.reduce(visible_html_tree, &add_rule_set_to_html(&1, &2))
+    |> Enum.reduce(visible_tree, &add_rules_to_html_tree(&1, &2))
     |> Util.traverse("premailex", fn {"premailex", attrs, _children} ->
       {"data-index", index} = Enum.find(attrs, &(elem(&1, 0) == "data-index"))
 
@@ -126,14 +125,14 @@ defmodule Premailex.HTMLInlineStyles do
     nil
   end
 
-  defp add_rule_set_to_html(%{selector: selector, rules: rules, specificity: specificity}, html) do
-    html
+  defp add_rules_to_html_tree(%{selector: selector, rules: rules, specificity: specificity}, tree) do
+    tree
     |> HTMLParser.all(selector)
-    |> Enum.reduce(html, &update_style_for_html(&2, &1, rules, specificity))
+    |> Enum.reduce(tree, &update_style_for_html_tree(&2, &1, rules, specificity))
   end
 
-  defp update_style_for_html(html, needle, rules, specificity) do
-    Util.traverse_until_first(html, needle, &update_style_for_element(&1, rules, specificity))
+  defp update_style_for_html_tree(tree, needle, rules, specificity) do
+    Util.traverse_until_first(tree, needle, &update_style_for_element(&1, rules, specificity))
   end
 
   defp update_style_for_element({name, attrs, children}, rules, specificity) do
@@ -144,12 +143,11 @@ defmodule Premailex.HTMLInlineStyles do
       |> set_inline_style_specificity()
       |> add_styles_with_specificity(rules, specificity)
 
-    attrs =
-      attrs
-      |> Enum.filter(fn {name, _} -> name != "style" end)
-      |> Enum.concat([{"style", style}])
+    {name, put_style_attr(attrs, style), children}
+  end
 
-    {name, attrs, children}
+  defp put_style_attr(attrs, style) do
+    List.keystore(attrs, "style", 0, {"style", style})
   end
 
   defp set_inline_style_specificity(nil), do: ""
@@ -160,14 +158,14 @@ defmodule Premailex.HTMLInlineStyles do
     "#{style}[SPEC=#{specificity}[#{CSSParser.to_string(rules)}]]"
   end
 
-  defp normalize_styles(html) do
-    html
+  defp normalize_styles(tree) do
+    tree
     |> HTMLParser.all("[style]")
-    |> Enum.reduce(html, &merge_styles(&2, &1))
+    |> Enum.reduce(tree, &merge_styles(&2, &1))
   end
 
-  defp merge_styles(html, needle) do
-    Util.traverse_until_first(html, needle, &merge_style/1)
+  defp merge_styles(tree, needle) do
+    Util.traverse_until_first(tree, needle, &merge_style/1)
   end
 
   defp merge_style({name, attrs, children}) do
@@ -189,12 +187,7 @@ defmodule Premailex.HTMLInlineStyles do
         style -> style
       end
 
-    attrs =
-      attrs
-      |> Enum.filter(fn {name, _} -> name != "style" end)
-      |> Enum.concat([{"style", style}])
-
-    {name, attrs, children}
+    {name, put_style_attr(attrs, style), children}
   end
 
   defp optimize(tree, steps, options) when is_atom(steps), do: optimize(tree, [steps], options)
