@@ -109,4 +109,30 @@ defmodule Premailex.Util do
       tree -> tree
     end
   end
+
+  @doc """
+  Traverses tree calling the function on every element and replacing each with
+  the result.
+
+  Children of the returned element are walked again, so the function can
+  produce new subtrees that themselves contain matches.
+
+  ## Examples
+
+      iex> Premailex.Util.traverse_and_update({"div", [], [{"p", [], ["hi"]}]}, fn {tag, attrs, children} -> {tag, [{"class", "x"} | attrs], children} end)
+      {"div", [{"class", "x"}], [{"p", [{"class", "x"}], ["hi"]}]}
+  """
+  @spec traverse_and_update(html_tree(), (html_element() -> html_element())) :: html_tree()
+  def traverse_and_update(tree, fun), do: do_traverse_and_update(tree, fun)
+
+  defp do_traverse_and_update(children, fun) when is_list(children),
+    do: Enum.map(children, &do_traverse_and_update(&1, fun))
+
+  defp do_traverse_and_update({_, _, _} = element, fun) do
+    {tag, attrs, children} = fun.(element)
+
+    {tag, attrs, do_traverse_and_update(children, fun)}
+  end
+
+  defp do_traverse_and_update(other, _fun), do: other
 end
