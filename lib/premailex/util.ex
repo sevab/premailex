@@ -31,47 +31,53 @@ defmodule Premailex.Util do
   @spec traverse(html_tree(), needle() | [needle()], (html_node() -> html_node())) :: html_tree()
   @spec traverse(html_tree(), needle() | [needle()], (html_node() -> {:halt, html_node()})) ::
           html_tree() | {:halt, html_tree()}
-  def traverse(tree, needles, fun) when is_list(needles),
-    do: Enum.reduce(needles, tree, &traverse(&2, &1, fun))
+  def traverse(tree, needle_or_needles, fun),
+    do: do_traverse(tree, List.wrap(needle_or_needles), fun)
 
-  def traverse(children, needle, fun) when is_list(children) do
+  defp do_traverse(children, needles, fun) when is_list(children) do
     children
-    |> Enum.map_reduce(:ok, &maybe_traverse({&1, needle, fun}, &2))
+    |> Enum.map_reduce(:ok, &maybe_traverse({&1, needles, fun}, &2))
     |> case do
       {children, :halt} -> {:halt, children}
       {children, :ok} -> children
     end
   end
 
-  def traverse(text, _, _) when is_binary(text), do: text
+  defp do_traverse(text, _needles, _fun) when is_binary(text), do: text
 
-  def traverse({:comment, _comment} = element, :comment, fun), do: fun.(element)
-
-  def traverse({name, attrs, children} = element, needle, fun) do
-    cond do
-      needle == name -> fun.(element)
-      needle == element -> fun.(element)
-      true -> handle_traversed({name, attrs, children}, needle, fun)
+  defp do_traverse({:comment, _comment} = element, needles, fun) do
+    case :comment in needles do
+      true -> fun.(element)
+      false -> element
     end
   end
 
-  def traverse(element, _, _), do: element
+  defp do_traverse({name, attrs, children} = element, needles, fun) do
+    cond do
+      name in needles ->
+        fun.(element)
 
-  defp maybe_traverse({element, needle, fun}, :ok) do
-    case traverse(element, needle, fun) do
+      element in needles ->
+        fun.(element)
+
+      true ->
+        case do_traverse(children, needles, fun) do
+          {:halt, children} -> {:halt, {name, attrs, children}}
+          children -> {name, attrs, children}
+        end
+    end
+  end
+
+  defp do_traverse(other, _needles, _fun), do: other
+
+  defp maybe_traverse({element, needles, fun}, :ok) do
+    case do_traverse(element, needles, fun) do
       {:halt, children} -> {children, :halt}
       children -> {children, :ok}
     end
   end
 
-  defp maybe_traverse({element, _needle, _fun}, :halt), do: {element, :halt}
-
-  defp handle_traversed({name, attrs, children}, needle, fun) do
-    case traverse(children, needle, fun) do
-      {:halt, children} -> {:halt, {name, attrs, children}}
-      children -> {name, attrs, children}
-    end
-  end
+  defp maybe_traverse({element, _needles, _fun}, :halt), do: {element, :halt}
 
   @doc """
   Traverses each element in `children`, calling `fun.(element, index)` for any
