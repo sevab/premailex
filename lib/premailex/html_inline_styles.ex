@@ -112,21 +112,24 @@ defmodule Premailex.HTMLInlineStyles do
   defp apply_matched_rules(matches, tree) when map_size(matches) == 0, do: tree
 
   defp apply_matched_rules(matches, tree) do
+    merged_matches =
+      matches
+      |> Map.values()
+      |> Enum.uniq()
+      |> Map.new(fn rules -> {rules, CSSParser.merge(rules)} end)
+
     Util.traverse_and_update(tree, fn element ->
       case Map.get(matches, element) do
         nil -> element
-        rules -> apply_inline_style(element, rules)
+        rules -> apply_inline_style(element, rules, merged_matches)
       end
     end)
   end
 
-  defp apply_inline_style({name, attrs, children}, rules) do
+  defp apply_inline_style({name, attrs, children}, rules, merged_matches) do
     attrs =
       attrs
-      |> get_inline_css_rule()
-      |> List.wrap()
-      |> Kernel.++(Enum.reverse(rules))
-      |> CSSParser.merge()
+      |> merge_inlined_css_rule(merged_matches, rules)
       |> case do
         [] ->
           attrs
@@ -138,17 +141,20 @@ defmodule Premailex.HTMLInlineStyles do
     {name, attrs, children}
   end
 
-  defp get_inline_css_rule(attrs) do
+  defp merge_inlined_css_rule(attrs, merged_matches, rules) do
     case List.keyfind(attrs, "style", 0) do
       nil ->
-        nil
+        Map.fetch!(merged_matches, rules)
 
       {"style", style} ->
-        %{
-          selector: "",
-          declarations: CSSParser.parse_declaration_block(style),
-          specificity: {1, 0, 0, 0}
-        }
+        CSSParser.merge([
+          %{
+            selector: "",
+            declarations: CSSParser.parse_declaration_block(style),
+            specificity: {1, 0, 0, 0}
+          }
+          | rules
+        ])
     end
   end
 
