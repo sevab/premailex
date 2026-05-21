@@ -49,8 +49,7 @@ defmodule Premailex.HTMLInlineStyles do
     optimize_options = Keyword.take(options, [:css_selector])
 
     css_rules
-    |> apply_styles(tree)
-    |> normalize_styles()
+    |> apply_css_rules(tree)
     |> optimize(optimize_steps, optimize_options)
     |> remove_empty_comments()
     |> HTMLParser.to_string()
@@ -59,35 +58,102 @@ defmodule Premailex.HTMLInlineStyles do
   defp load_styles(tree, css_selector) do
     tree
     |> HTMLParser.all(css_selector)
-    |> Enum.map(&load_css(&1))
-    |> Enum.filter(&(!is_nil(&1)))
+    |> Enum.map(&load_css/1)
+    |> Enum.reject(&is_nil/1)
     |> Enum.reduce([], &Enum.concat(&1, &2))
   end
 
-  defp apply_styles(styles, tree) do
-    hidden_elements =
+  defp apply_css_rules(css_rules, tree) do
+    hidden_heads =
       tree
       |> HTMLParser.all("head")
-      |> Enum.reduce([], fn element, acc ->
-        index = to_string(length(acc))
-
-        acc ++ [{index, element, {"premailex", [{"data-index", index}], []}}]
+      |> Enum.with_index()
+      |> Map.new(fn {head, i} ->
+        {Integer.to_string(i), head}
       end)
 
     visible_tree =
-      Enum.reduce(hidden_elements, tree, fn {_index, hidden_element, placeholder}, tree ->
-        Util.traverse_until_first(tree, hidden_element, fn _element -> placeholder end)
+      Enum.reduce(hidden_heads, tree, fn {index, head}, acc ->
+        Util.traverse_until_first(acc, head, fn _ ->
+          {"premailex", [{"data-index", index}], []}
+        end)
       end)
 
-    styles
-    |> Enum.reduce(visible_tree, &add_rules_to_html_tree(&1, &2))
+    visible_tree
+    |> match_css_rules_to_elements(css_rules)
+    |> apply_matched_css_rules(visible_tree)
     |> Util.traverse("premailex", fn {"premailex", attrs, _children} ->
-      {"data-index", index} = Enum.find(attrs, &(elem(&1, 0) == "data-index"))
+      {"data-index", index} = List.keyfind(attrs, "data-index", 0)
 
-      {_index, hidden_element, _replacement} = Enum.find(hidden_elements, &(elem(&1, 0) == index))
-
-      hidden_element
+      Map.fetch!(hidden_heads, index)
     end)
+  end
+
+  defp match_css_rules_to_elements(tree, css_rules) do
+    Enum.reduce(css_rules, %{}, fn rule, acc ->
+      tree
+      |> HTMLParser.all(rule.selector)
+      |> Enum.reduce(acc, &prepend_deduped_css_rule(&2, &1, rule))
+    end)
+  end
+
+  # A selector like `tr:nth-child(even)` would match identical siblings. A fix
+  # would be to have the HTML parser adapters do positional selector
+  # evaluation.
+  defp prepend_deduped_css_rule(acc, element, rule) do
+    Map.update(acc, element, [rule], fn
+      [^rule | _] = list -> list
+      list -> [rule | list]
+    end)
+  end
+
+  defp apply_matched_css_rules(css_rules_map, tree) when map_size(css_rules_map) == 0, do: tree
+
+  defp apply_matched_css_rules(css_rules_map, tree) do
+    declarations_by_rules =
+      css_rules_map
+      |> Map.values()
+      |> Enum.uniq()
+      |> Map.new(fn rules -> {rules, CSSParser.merge(rules)} end)
+
+    Util.traverse_and_update(tree, fn element ->
+      case Map.get(css_rules_map, element) do
+        nil -> element
+        rules -> put_inline_style(element, rules, declarations_by_rules)
+      end
+    end)
+  end
+
+  defp put_inline_style({name, attrs, children}, rules, declarations_by_rules) do
+    attrs =
+      attrs
+      |> merge_inlined_style(declarations_by_rules, rules)
+      |> case do
+        [] ->
+          attrs
+
+        declarations ->
+          List.keystore(attrs, "style", 0, {"style", CSSParser.to_string(declarations)})
+      end
+
+    {name, attrs, children}
+  end
+
+  defp merge_inlined_style(attrs, declarations_by_rules, rules) do
+    case List.keyfind(attrs, "style", 0) do
+      nil ->
+        Map.fetch!(declarations_by_rules, rules)
+
+      {"style", style} ->
+        CSSParser.merge([
+          %{
+            selector: "",
+            declarations: CSSParser.parse_declaration_block(style),
+            specificity: {1, 0, 0, 0}
+          }
+          | rules
+        ])
+    end
   end
 
   defp load_css({"style", _, content}) do
@@ -123,90 +189,6 @@ defmodule Premailex.HTMLInlineStyles do
     )
 
     nil
-  end
-
-  defp add_rules_to_html_tree(
-         %{selector: selector, declarations: declarations, specificity: specificity},
-         tree
-       ) do
-    tree
-    |> HTMLParser.all(selector)
-    |> Enum.reduce(tree, &update_style_for_html_tree(&2, &1, declarations, specificity))
-  end
-
-  defp update_style_for_html_tree(tree, needle, declarations, specificity) do
-    Util.traverse_until_first(
-      tree,
-      needle,
-      &update_style_for_element(&1, declarations, specificity)
-    )
-  end
-
-  defp update_style_for_element({name, attrs, children}, declarations, specificity) do
-    style =
-      attrs
-      |> Enum.into(%{})
-      |> Map.get("style", nil)
-      |> set_inline_style_specificity()
-      |> add_styles_with_specificity(declarations, specificity)
-
-    {name, put_style_attr(attrs, style), children}
-  end
-
-  defp put_style_attr(attrs, style) do
-    List.keystore(attrs, "style", 0, {"style", style})
-  end
-
-  defp set_inline_style_specificity(nil), do: ""
-  defp set_inline_style_specificity("[SPEC=" <> _rest = style), do: style
-
-  defp set_inline_style_specificity(style),
-    do: "[SPEC=#{format_specificity({1, 0, 0, 0})}[#{style}]]"
-
-  defp add_styles_with_specificity(style, declarations, specificity) do
-    "#{style}[SPEC=#{format_specificity(specificity)}[#{CSSParser.to_string(declarations)}]]"
-  end
-
-  defp format_specificity({a, b, c, d}), do: "#{a}.#{b}.#{c}.#{d}"
-
-  defp parse_specificity(str) do
-    [a, b, c, d] = str |> String.split(".") |> Enum.map(&String.to_integer/1)
-    {a, b, c, d}
-  end
-
-  defp normalize_styles(tree) do
-    tree
-    |> HTMLParser.all("[style]")
-    |> Enum.reduce(tree, &merge_styles(&2, &1))
-  end
-
-  defp merge_styles(tree, needle) do
-    Util.traverse_until_first(tree, needle, &merge_style/1)
-  end
-
-  defp merge_style({name, attrs, children}) do
-    current_style =
-      attrs
-      |> Enum.into(%{})
-      |> Map.get("style")
-
-    style =
-      ~r/\[SPEC\=(\d+\.\d+\.\d+\.\d+)\[(.[^\]\]]*)\]\]/
-      |> Regex.scan(current_style)
-      |> Enum.map(fn [_, specificity, declaration_block] ->
-        %{
-          specificity: parse_specificity(specificity),
-          declarations: CSSParser.parse_declaration_block(declaration_block)
-        }
-      end)
-      |> CSSParser.merge()
-      |> CSSParser.to_string()
-      |> case do
-        "" -> current_style
-        style -> style
-      end
-
-    {name, put_style_attr(attrs, style), children}
   end
 
   defp optimize(tree, steps, options) when is_atom(steps), do: optimize(tree, [steps], options)

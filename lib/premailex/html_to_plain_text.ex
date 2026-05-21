@@ -135,13 +135,13 @@ defmodule Premailex.HTMLToPlainText do
 
   defp ordered_list_items({_, _, items}) do
     items
-    |> Util.traverse_reduce("li", &ordered_list_item(&1, &2))
-    |> elem(0)
+    |> Enum.with_index(1)
+    |> Enum.map(fn {item, n} -> Util.traverse(item, "li", &ordered_list_item(&1, n)) end)
     |> join_binaries("")
   end
 
-  defp ordered_list_item({_, _, content}, acc) do
-    "#{acc + 1}. " <> HTMLParser.text(content) <> "\n"
+  defp ordered_list_item({_, _, content}, n) do
+    "#{n}. " <> HTMLParser.text(content) <> "\n"
   end
 
   defp tables(tree), do: Util.traverse(tree, "table", &table(&1))

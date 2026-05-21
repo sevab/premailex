@@ -14,8 +14,8 @@ defmodule Premailex.Util do
   Traverses tree searching for needle, and will call provided function on
   any occurances.
 
-  If the function returns `{:halt, any}`, traverse will stop, and result will
-  be `{:halt, html_tree}`.
+  The tree will be traversed depth-first, and the function will be called on
+  every node matching a needle, replacing each with the result.
 
   ## Examples
 
@@ -29,73 +29,36 @@ defmodule Premailex.Util do
       {"div", [], [{:comment, "Updated"}, {"p", [], ["Paragraph"]}]}
   """
   @spec traverse(html_tree(), needle() | [needle()], (html_node() -> html_node())) :: html_tree()
-  @spec traverse(html_tree(), needle() | [needle()], (html_node() -> {:halt, html_node()})) ::
-          html_tree() | {:halt, html_tree()}
-  def traverse(tree, needles, fun) when is_list(needles),
-    do: Enum.reduce(needles, tree, &traverse(&2, &1, fun))
+  def traverse(tree, needle_or_needles, fun),
+    do: do_traverse(tree, List.wrap(needle_or_needles), fun)
 
-  def traverse(children, needle, fun) when is_list(children) do
-    children
-    |> Enum.map_reduce(:ok, &maybe_traverse({&1, needle, fun}, &2))
-    |> case do
-      {children, :halt} -> {:halt, children}
-      {children, :ok} -> children
+  defp do_traverse(children, needles, fun) when is_list(children),
+    do: Enum.map(children, &do_traverse(&1, needles, fun))
+
+  defp do_traverse(text, _needles, _fun) when is_binary(text), do: text
+
+  defp do_traverse({:comment, _comment} = element, needles, fun) do
+    case :comment in needles do
+      true -> fun.(element)
+      false -> element
     end
   end
 
-  def traverse(text, _, _) when is_binary(text), do: text
-
-  def traverse({:comment, _comment} = element, :comment, fun), do: fun.(element)
-
-  def traverse({name, attrs, children} = element, needle, fun) do
+  defp do_traverse({name, attrs, children} = element, needles, fun) do
     cond do
-      needle == name -> fun.(element)
-      needle == element -> fun.(element)
-      true -> handle_traversed({name, attrs, children}, needle, fun)
+      name in needles -> fun.(element)
+      element in needles -> fun.(element)
+      true -> {name, attrs, do_traverse(children, needles, fun)}
     end
   end
 
-  def traverse(element, _, _), do: element
-
-  defp maybe_traverse({element, needle, fun}, :ok) do
-    case traverse(element, needle, fun) do
-      {:halt, children} -> {children, :halt}
-      children -> {children, :ok}
-    end
-  end
-
-  defp maybe_traverse({element, _needle, _fun}, :halt), do: {element, :halt}
-
-  defp handle_traversed({name, attrs, children}, needle, fun) do
-    case traverse(children, needle, fun) do
-      {:halt, children} -> {:halt, {name, attrs, children}}
-      children -> {name, attrs, children}
-    end
-  end
-
-  @doc """
-  Traverses each element in `children`, calling `fun.(element, index)` for any
-  occurrence of `needle`, where `index` is the zero-based position of the
-  element in `children`. Returns `{children, count}` where `count` is the total
-  number of children traversed.
-
-  ## Examples
-
-      iex> Premailex.Util.traverse_reduce([{"p", [], ["First paragraph"]}, {"p", [], ["Second paragraph"]}], "p", fn({name, attrs, _children}, acc) -> {name, attrs, ["Updated " <> to_string(acc)]} end)
-      {[{"p", [], ["Updated 0"]}, {"p", [], ["Updated 1"]}], 2}
-  """
-  @spec traverse_reduce([html_node()], needle(), (html_node(), non_neg_integer() -> html_node())) ::
-          {[html_node()], non_neg_integer()}
-  def traverse_reduce(children, needle, fun) when is_list(children),
-    do:
-      Enum.map_reduce(
-        children,
-        0,
-        &{traverse(&1, needle, fn element -> fun.(element, &2) end), &2 + 1}
-      )
+  defp do_traverse(other, _needles, _fun), do: other
 
   @doc """
   Traverses tree until first match for needle.
+
+  The tree will be traversed depth-first, and the function will be called on
+  the first node matching a needle, replacing it with the result.
 
   ## Examples
 
@@ -104,9 +67,76 @@ defmodule Premailex.Util do
   """
   @spec traverse_until_first(html_tree(), needle(), (html_node() -> html_node())) :: html_tree()
   def traverse_until_first(tree, needle, fun) do
-    case traverse(tree, needle, &{:halt, fun.(&1)}) do
+    case do_traverse_until_first(tree, needle, fun) do
       {:halt, tree} -> tree
       tree -> tree
     end
   end
+
+  defp do_traverse_until_first(children, needle, fun) when is_list(children) do
+    children
+    |> Enum.reduce({:cont, []}, fn
+      child, {:cont, acc} ->
+        case do_traverse_until_first(child, needle, fun) do
+          {:halt, result} -> {:halt, [result | acc]}
+          other -> {:cont, [other | acc]}
+        end
+
+      child, {:halt, acc} ->
+        {:halt, [child | acc]}
+    end)
+    |> case do
+      {:halt, acc} -> {:halt, Enum.reverse(acc)}
+      {:cont, acc} -> Enum.reverse(acc)
+    end
+  end
+
+  defp do_traverse_until_first(text, _needle, _fun) when is_binary(text), do: text
+
+  defp do_traverse_until_first({:comment, _comment} = element, :comment, fun) do
+    {:halt, fun.(element)}
+  end
+
+  defp do_traverse_until_first({name, _attrs, _children} = element, name, fun) do
+    {:halt, fun.(element)}
+  end
+
+  defp do_traverse_until_first({_, _, _} = element, element, fun) do
+    {:halt, fun.(element)}
+  end
+
+  defp do_traverse_until_first({name, attrs, children}, needle, fun) do
+    case do_traverse_until_first(children, needle, fun) do
+      {:halt, new_children} -> {:halt, {name, attrs, new_children}}
+      new_children -> {name, attrs, new_children}
+    end
+  end
+
+  defp do_traverse_until_first(other, _needle, _fun), do: other
+
+  @doc """
+  Traverses tree calling the function on every element and replacing each with
+  the result.
+
+  Children of the returned element are walked again, so the function can
+  produce new subtrees that themselves contain matches.
+
+  ## Examples
+
+      iex> Premailex.Util.traverse_and_update({"div", [], [{"p", [], ["hi"]}]}, fn {tag, attrs, children} -> {tag, [{"class", "x"} | attrs], children} end)
+      {"div", [{"class", "x"}], [{"p", [{"class", "x"}], ["hi"]}]}
+  """
+  @spec traverse_and_update(html_tree(), (html_element() -> html_element())) :: html_tree()
+  def traverse_and_update(tree, fun), do: do_traverse_and_update(tree, fun)
+
+  defp do_traverse_and_update(children, fun) when is_list(children),
+    do: Enum.map(children, &do_traverse_and_update(&1, fun))
+
+  defp do_traverse_and_update({_, _, _} = element, fun) do
+    {tag, attrs, children} = fun.(element)
+
+    {tag, attrs, do_traverse_and_update(children, fun)}
+  end
+
+  defp do_traverse_and_update(other, _fun), do: other
 end

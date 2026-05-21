@@ -4,6 +4,8 @@
 
 Requires Elixir 1.14 or higher.
 
+This release contains significant performance improvements with typical HTML emails seeing a ~4x speedup when inlining styles.
+
 * Fixed compiler warnings in `Premailex.HTMLParser.Meeseeks`
 * Fixed invalid spec in `Premailex.HTMLInlineStyles.process/3`
 * `Floki` is now optional
@@ -12,6 +14,9 @@ Requires Elixir 1.14 or higher.
 * `Premailex.CSSParser` rewritten and no longer uses regular expression to parse CSS
 * Renamed `Premailex.CSSParser.parse_rules/1` to `Premailex.CSSParser.parse_declaration_block/1`
 * `Premailex.CSSParser.parse_declaration_block/1` now does case insensitive, terminal `!important` detection
+* `Premailex.HTMLInlineStyles.process/3` tree traversal performance changed from O(N^2) to O(N)
+* `Premailex.Util.traverse_and_update/2` added
+* `Premailex.Util.traverse_reduce/3` removed
 
 ## v0.3.20 (2025-01-20)
 
