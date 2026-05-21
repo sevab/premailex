@@ -49,7 +49,7 @@ defmodule Premailex.HTMLInlineStyles do
     optimize_options = Keyword.take(options, [:css_selector])
 
     css_rules
-    |> apply_rules(tree)
+    |> apply_css_rules(tree)
     |> optimize(optimize_steps, optimize_options)
     |> remove_empty_comments()
     |> HTMLParser.to_string()
@@ -58,78 +58,76 @@ defmodule Premailex.HTMLInlineStyles do
   defp load_styles(tree, css_selector) do
     tree
     |> HTMLParser.all(css_selector)
-    |> Enum.map(&load_css(&1))
-    |> Enum.filter(&(!is_nil(&1)))
+    |> Enum.map(&load_css/1)
+    |> Enum.reject(&is_nil/1)
     |> Enum.reduce([], &Enum.concat(&1, &2))
   end
 
-  defp apply_rules(rules, tree) do
-    hidden_elements =
+  defp apply_css_rules(css_rules, tree) do
+    hidden_heads =
       tree
       |> HTMLParser.all("head")
-      |> Enum.reduce([], fn element, acc ->
-        index = to_string(length(acc))
-
-        acc ++ [{index, element, {"premailex", [{"data-index", index}], []}}]
+      |> Enum.with_index()
+      |> Map.new(fn {head, i} ->
+        {Integer.to_string(i), head}
       end)
 
     visible_tree =
-      Enum.reduce(hidden_elements, tree, fn {_index, hidden_element, placeholder}, tree ->
-        Util.traverse_until_first(tree, hidden_element, fn _element -> placeholder end)
+      Enum.reduce(hidden_heads, tree, fn {index, head}, acc ->
+        Util.traverse_until_first(acc, head, fn _ ->
+          {"premailex", [{"data-index", index}], []}
+        end)
       end)
 
     visible_tree
-    |> match_rules_to_elements(rules)
-    |> apply_matched_rules(visible_tree)
+    |> match_css_rules_to_elements(css_rules)
+    |> apply_matched_css_rules(visible_tree)
     |> Util.traverse("premailex", fn {"premailex", attrs, _children} ->
-      {"data-index", index} = Enum.find(attrs, &(elem(&1, 0) == "data-index"))
+      {"data-index", index} = List.keyfind(attrs, "data-index", 0)
 
-      {_index, hidden_element, _replacement} = Enum.find(hidden_elements, &(elem(&1, 0) == index))
-
-      hidden_element
+      Map.fetch!(hidden_heads, index)
     end)
   end
 
-  defp match_rules_to_elements(tree, rules) do
-    Enum.reduce(rules, %{}, fn rule, acc ->
+  defp match_css_rules_to_elements(tree, css_rules) do
+    Enum.reduce(css_rules, %{}, fn rule, acc ->
       tree
       |> HTMLParser.all(rule.selector)
-      |> Enum.reduce(acc, &prepend_deduped_rule(&2, &1, rule))
+      |> Enum.reduce(acc, &prepend_deduped_css_rule(&2, &1, rule))
     end)
   end
 
-  # NOTE: This match is not right as it doesn't account for identical elements.
   # A selector like `tr:nth-child(even)` would match identical siblings. A fix
   # would be to have the HTML parser adapters do positional selector
   # evaluation.
-  defp prepend_deduped_rule(acc, element, rule) do
+  defp prepend_deduped_css_rule(acc, element, rule) do
     Map.update(acc, element, [rule], fn
       [^rule | _] = list -> list
       list -> [rule | list]
     end)
   end
 
-  defp apply_matched_rules(matches, tree) when map_size(matches) == 0, do: tree
+  defp apply_matched_css_rules(css_rules_map, tree) when map_size(css_rules_map) == 0, do: tree
 
-  defp apply_matched_rules(matches, tree) do
-    merged_matches =
-      matches
+  defp apply_matched_css_rules(css_rules_map, tree) do
+    declarations_by_rules =
+      css_rules_map
       |> Map.values()
       |> Enum.uniq()
       |> Map.new(fn rules -> {rules, CSSParser.merge(rules)} end)
 
     Util.traverse_and_update(tree, fn element ->
-      case Map.get(matches, element) do
+      case Map.get(css_rules_map, element) do
         nil -> element
-        rules -> apply_inline_style(element, rules, merged_matches)
+        rules -> put_inline_style(element, rules, declarations_by_rules)
       end
     end)
   end
 
-  defp apply_inline_style({name, attrs, children}, rules, merged_matches) do
+  defp put_inline_style({name, attrs, children}, rules, declarations_by_rules) do
     attrs =
       attrs
-      |> merge_inlined_css_rule(merged_matches, rules)
+      |> merge_inlined_style(declarations_by_rules, rules)
       |> case do
         [] ->
           attrs
@@ -141,10 +139,10 @@ defmodule Premailex.HTMLInlineStyles do
     {name, attrs, children}
   end
 
-  defp merge_inlined_css_rule(attrs, merged_matches, rules) do
+  defp merge_inlined_style(attrs, declarations_by_rules, rules) do
     case List.keyfind(attrs, "style", 0) do
       nil ->
-        Map.fetch!(merged_matches, rules)
+        Map.fetch!(declarations_by_rules, rules)
 
       {"style", style} ->
         CSSParser.merge([

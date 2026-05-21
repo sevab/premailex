@@ -4,6 +4,8 @@
 
 Requires Elixir 1.14 or higher.
 
+This release contains significant performance improvements with typical HTML emails seeing a ~4x speedup when inlining styles.
+
 * Fixed compiler warnings in `Premailex.HTMLParser.Meeseeks`
 * Fixed invalid spec in `Premailex.HTMLInlineStyles.process/3`
 * `Floki` is now optional
