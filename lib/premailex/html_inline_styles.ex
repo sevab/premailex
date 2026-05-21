@@ -129,18 +129,44 @@ defmodule Premailex.HTMLInlineStyles do
          %{selector: selector, declarations: declarations, specificity: specificity},
          tree
        ) do
-    tree
-    |> HTMLParser.all(selector)
-    |> Enum.reduce(tree, &update_style_for_html_tree(&2, &1, declarations, specificity))
-  end
-
-  defp update_style_for_html_tree(tree, needle, declarations, specificity) do
-    Util.traverse_until_first(
+    update_selector_matches_in_tree(
       tree,
-      needle,
+      selector,
       &update_style_for_element(&1, declarations, specificity)
     )
   end
+
+  # `HTMLParser.all/2` arrive in document order, so a single depth-first walk
+  # consumes them via the `[^element | rest]` head match with O(1) per check,
+  # O(N) walk worst case.
+
+  defp update_selector_matches_in_tree(tree, selector, fun) do
+    tree
+    |> HTMLParser.all(selector)
+    |> case do
+      [] -> {tree, []}
+      matches -> update_node_matches_in_tree(tree, matches, fun)
+    end
+    |> elem(0)
+  end
+
+  defp update_node_matches_in_tree(nodes, matches, fun) when is_list(nodes),
+    do: Enum.map_reduce(nodes, matches, &update_node_matches_in_tree(&1, &2, fun))
+
+  defp update_node_matches_in_tree({_, _, _} = element, [element | rest], fun) do
+    {tag, attrs, children} = fun.(element)
+    {updated_children, remaining} = update_node_matches_in_tree(children, rest, fun)
+
+    {{tag, attrs, updated_children}, remaining}
+  end
+
+  defp update_node_matches_in_tree({tag, attrs, children}, matches, fun) do
+    {updated_children, remaining} = update_node_matches_in_tree(children, matches, fun)
+
+    {{tag, attrs, updated_children}, remaining}
+  end
+
+  defp update_node_matches_in_tree(other, matches, _fun), do: {other, matches}
 
   defp update_style_for_element({name, attrs, children}, declarations, specificity) do
     style =
@@ -175,13 +201,7 @@ defmodule Premailex.HTMLInlineStyles do
   end
 
   defp normalize_styles(tree) do
-    tree
-    |> HTMLParser.all("[style]")
-    |> Enum.reduce(tree, &merge_styles(&2, &1))
-  end
-
-  defp merge_styles(tree, needle) do
-    Util.traverse_until_first(tree, needle, &merge_style/1)
+    update_selector_matches_in_tree(tree, "[style]", &merge_style/1)
   end
 
   defp merge_style({name, attrs, children}) do

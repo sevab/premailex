@@ -12,6 +12,7 @@ Requires Elixir 1.14 or higher.
 * `Premailex.CSSParser` rewritten and no longer uses regular expression to parse CSS
 * Renamed `Premailex.CSSParser.parse_rules/1` to `Premailex.CSSParser.parse_declaration_block/1`
 * `Premailex.CSSParser.parse_declaration_block/1` now does case insensitive, terminal `!important` detection
+* `Premailex.HTMLInlineStyles.process/3` tree traversal performance changed from O(N^2) to O(N)
 
 ## v0.3.20 (2025-01-20)
 
