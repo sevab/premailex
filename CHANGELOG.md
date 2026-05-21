@@ -14,6 +14,7 @@ Requires Elixir 1.14 or higher.
 * `Premailex.CSSParser.parse_declaration_block/1` now does case insensitive, terminal `!important` detection
 * `Premailex.HTMLInlineStyles.process/3` tree traversal performance changed from O(N^2) to O(N)
 * `Premailex.Util.traverse_and_update/2` added
+* `Premailex.Util.traverse_reduce/3` removed
 
 ## v0.3.20 (2025-01-20)
 
