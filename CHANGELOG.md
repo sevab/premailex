@@ -4,12 +4,13 @@
 
 Requires Elixir 1.14 or higher.
 
-This release contains significant performance improvements with typical HTML emails seeing a ~4x speedup when inlining styles.
+This release contains significant performance improvements with typical HTML emails seeing a ~4x speedup when inlining styles. The release is also now zero dependency with the new fallback HTML parser `Premailex.HTMLParser.Xmerl`.
 
 * Fixed compiler warnings in `Premailex.HTMLParser.Meeseeks`
 * Fixed invalid spec in `Premailex.HTMLInlineStyles.process/3`
 * `Floki` is now optional
 * Added support for `LazyHTML`
+* Added fallback support for `:xmerl`
 * Added `Premailex.CSSParser.split_selector_groups/1` for selector group splitting
 * `Premailex.CSSParser` rewritten and no longer uses regular expression to parse CSS
 * Renamed `Premailex.CSSParser.parse_rules/1` to `Premailex.CSSParser.parse_declaration_block/1`

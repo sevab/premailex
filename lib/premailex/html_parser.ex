@@ -3,7 +3,8 @@ defmodule Premailex.HTMLParser do
   Module that provides HTML parsing API using an underlying HTML parser library.
 
   By default, premailex will try to use Floki, then LazyHTML, then Meeseeks
-  (in that order) based on what's available.
+  (in that order) based on what's available. If none are available, it falls
+  back to a built-in XML parser intended for well-formed HTML emails.
 
   You can explicitly configure which parser to use in your config:
 
@@ -33,13 +34,13 @@ defmodule Premailex.HTMLParser do
   def parse(html), do: html_parser().parse(html)
 
   defp html_parser do
-    case Application.get_env(:premailex, :html_parser) || default_html_parser!() do
+    case Application.get_env(:premailex, :html_parser) || default_html_parser() do
       mod when is_atom(mod) -> mod
       other -> raise "Invalid html_parser, got: #{inspect(other)}"
     end
   end
 
-  defp default_html_parser! do
+  defp default_html_parser do
     cond do
       Code.ensure_loaded?(Floki) ->
         Premailex.HTMLParser.Floki
@@ -51,16 +52,7 @@ defmodule Premailex.HTMLParser do
         Premailex.HTMLParser.Meeseeks
 
       true ->
-        raise """
-        No HTML parser is available. Please add at least one of the following dependencies to your mix.exs:
-
-        - {:floki, "~> 0.19"}
-        - {:lazy_html, "~> 0.1.11"}
-        - {:meeseeks, "~> 0.11"}
-
-        Or explicitly configure a parser:
-        config :premailex, html_parser: Premailex.HTMLParser.Floki
-        """
+        Premailex.HTMLParser.Xmerl
     end
   end
 

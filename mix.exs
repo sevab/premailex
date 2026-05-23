@@ -15,13 +15,15 @@ defmodule Premailex.Mixfile do
         exclude: [
           :certifi,
           :httpc,
+          Floki,
+          LazyHTML,
           Meeseeks,
           Meeseeks.Document,
           Meeseeks.Selector.CSS,
-          LazyHTML,
           :ssl_verify_hostname
         ]
       ],
+      dialyzer: [plt_add_apps: [:mix]],
 
       # Hex
       description: "Add inline styling to your HTML emails, and transform them to text",
@@ -35,7 +37,7 @@ defmodule Premailex.Mixfile do
 
   def application do
     [
-      extra_applications: [:logger, :inets, :ssl]
+      extra_applications: [:logger, :inets, :ssl, :xmerl]
     ]
   end
 
@@ -63,7 +65,8 @@ defmodule Premailex.Mixfile do
         "GitHub" => @source_url,
         "Sponsor" => "https://github.com/sponsors/danschultzer"
       },
-      files: ~w(lib LICENSE mix.exs README.md)
+      # Mix task is only for maintainer use and should not be included in release.
+      files: ~w(lib/premailex lib/premailex.ex LICENSE mix.exs README.md priv/entities.txt)
     ]
   end
 
@@ -84,11 +87,22 @@ defmodule Premailex.Mixfile do
           Premailex.CSSParser,
           Premailex.HTMLParser
         ],
+        "HTML Parsers": [
+          Premailex.HTMLParser.Xmerl,
+          Premailex.HTMLParser.Floki,
+          Premailex.HTMLParser.LazyHTML,
+          Premailex.HTMLParser.Meeseeks
+        ],
         HTTP: [
           Premailex.HTTPAdapter,
           Premailex.HTTPAdapter.Httpc
         ]
-      ]
+      ],
+      # Mix task is only for maintainer use and should not be included in docs.
+      filter_modules: fn
+        Mix.Tasks.Premailex.Gen.Entities, _ -> false
+        _module, _ -> true
+      end
     ]
   end
 end
