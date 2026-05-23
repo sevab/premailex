@@ -45,9 +45,10 @@ defmodule Premailex.HTMLToPlainText do
   defp images(tree), do: DOM.replace_all_matches(tree, "img", &image(&1))
 
   defp image({_, attr, _}) do
-    attr
-    |> Enum.find({"", ""}, &(elem(&1, 0) == "alt"))
-    |> elem(1)
+    case List.keyfind(attr, "alt", 0) do
+      {"alt", value} -> value
+      nil -> ""
+    end
   end
 
   defp line_breaks(tree), do: DOM.replace_all_matches(tree, "br", &line_break(&1))
@@ -86,10 +87,10 @@ defmodule Premailex.HTMLToPlainText do
 
   defp link({_, attr, content}) do
     url =
-      attr
-      |> Enum.find({"", ""}, &(elem(&1, 0) == "href"))
-      |> elem(1)
-      |> String.replace("mailto:", "")
+      case List.keyfind(attr, "href", 0) do
+        {"href", value} -> String.replace(value, "mailto:", "")
+        nil -> ""
+      end
 
     text = DOM.text_content(content)
 

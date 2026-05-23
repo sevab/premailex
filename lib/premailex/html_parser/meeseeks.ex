@@ -16,10 +16,15 @@ if Code.ensure_loaded?(Meeseeks) do
     @impl true
     @doc false
     def parse(html) do
-      html
-      |> Meeseeks.parse()
-      |> Meeseeks.tree()
-      |> unwrap_fragment(html)
+      case Meeseeks.parse(html) do
+        %Meeseeks.Document{} = document ->
+          document
+          |> Meeseeks.tree()
+          |> unwrap_fragment(html)
+
+        {:error, reason} ->
+          raise ArgumentError, "Meeseeks failed to parse HTML: #{inspect(reason)}"
+      end
     end
 
     # Meeseeks wraps all fragments in an <html> element, so we need to unwrap

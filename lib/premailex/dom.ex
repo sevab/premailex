@@ -8,14 +8,14 @@ defmodule Premailex.DOM do
 
   Supports the following pseudo-classes: #{Enum.map_join(@supported_pseudo_classes, ", ", &"`:#{&1}`")}.
 
-  Functional psuedo-classes that takes arguments (e.g. `:nth-child`) supports
+  Functional pseudo-classes that take arguments (e.g. `:nth-child`) support
   the An+B syntax.
 
   ## Selector support limitations
 
     * Pseudo-classes not supported will never match and emit a debug log.
 
-    * Functional pseudo-classes that takes arguments don't support the
+    * Functional pseudo-classes that take arguments don't support the
       `of <complex-selector-list>` clause — the entire expression is treated as
       invalid and the rule is ignored.
 
@@ -31,36 +31,42 @@ defmodule Premailex.DOM do
   @type needle :: Premailex.html_element() | tag_name() | :comment
   @type selector :: String.t()
 
-  @typedoc "A selector item is a map that has a selector key."
+  @typedoc """
+  A selector item is a map that has a `:selector` key.
+
+  Any additional keys callers attach are preserved across the traversal and
+  passed back as part of the matched selector items in
+  `traverse_with_matching_items/3` callback.
+  """
   @type selector_item :: %{required(:selector) => selector(), optional(any) => any}
 
   @doc """
-  Traverses tree searching for needle, and will call provided function on
-  any occurrences.
+  Traverses element tree searching for needle, and will call provided function
+  on any occurrences.
 
-  The tree will be traversed depth-first, and the function will be called on
-  every node matching a needle, replacing each with the result.
+  The element tree will be traversed depth-first, and the function will be
+  called on every node matching a needle, replacing each with the result.
 
   ## Examples
 
-      iex> Premailex.DOM.replace_all_matches({"div", [], [{"p", [], ["First paragraph"]}, {"p", [], ["Second paragraph"]}]}, "p", fn {name, attrs, _children} -> {name, attrs, ["Updated"]} end)
-      {"div", [], [{"p", [], ["Updated"]}, {"p", [], ["Updated"]}]}
+      iex> Premailex.DOM.replace_all_matches([{"div", [], [{"p", [], ["First paragraph"]}, {"p", [], ["Second paragraph"]}]}], "p", fn {name, attrs, _children} -> {name, attrs, ["Updated"]} end)
+      [{"div", [], [{"p", [], ["Updated"]}, {"p", [], ["Updated"]}]}]
 
       iex> Premailex.DOM.replace_all_matches({"div", [], [{"p", [], ["First paragraph"]}, {"p", [], ["Second paragraph"]}]}, {"p", [], ["Second paragraph"]}, fn {name, attrs, _children} -> {name, attrs, ["Updated"]} end)
       {"div", [], [{"p", [], ["First paragraph"]}, {"p", [], ["Updated"]}]}
 
-      iex> Premailex.DOM.replace_all_matches({"div", [], [{:comment, "This is a comment"}, {"p", [], ["Paragraph"]}]}, :comment, fn {:comment, _comment} -> {:comment, "Updated"} end)
-      {"div", [], [{:comment, "Updated"}, {"p", [], ["Paragraph"]}]}
+      iex> Premailex.DOM.replace_all_matches([{"div", [], [{:comment, "This is a comment"}, {"p", [], ["Paragraph"]}]}], :comment, fn {:comment, _comment} -> {:comment, "Updated"} end)
+      [{"div", [], [{:comment, "Updated"}, {"p", [], ["Paragraph"]}]}]
   """
   @spec replace_all_matches(
-          Premailex.html_tree(),
+          Premailex.html_tree() | Premailex.html_element(),
           needle() | [needle()],
           (Premailex.html_node() ->
              Premailex.html_node())
         ) ::
-          Premailex.html_tree()
-  def replace_all_matches(tree, needle_or_needles, fun),
-    do: do_replace_all_matches(tree, List.wrap(needle_or_needles), fun)
+          Premailex.html_tree() | Premailex.html_element()
+  def replace_all_matches(tree_or_element, needle_or_needles, fun),
+    do: do_replace_all_matches(tree_or_element, List.wrap(needle_or_needles), fun)
 
   defp do_replace_all_matches(children, needles, fun) when is_list(children),
     do: Enum.map(children, &do_replace_all_matches(&1, needles, fun))
@@ -90,16 +96,19 @@ defmodule Premailex.DOM do
 
   ## Examples
 
-      iex> Premailex.DOM.replace_first_match({"div", [], [{"p", [], ["First paragraph"]}, {"p", [], ["Second paragraph"]}]}, "p", fn {name, attrs, _children} -> {name, attrs, ["Updated"]} end)
-      {"div", [], [{"p", [], ["Updated"]}, {"p", [], ["Second paragraph"]}]}
+      iex> Premailex.DOM.replace_first_match([{"div", [], [{"p", [], ["First paragraph"]}, {"p", [], ["Second paragraph"]}]}], "p", fn {name, attrs, _children} -> {name, attrs, ["Updated"]} end)
+      [{"div", [], [{"p", [], ["Updated"]}, {"p", [], ["Second paragraph"]}]}]
   """
-  @spec replace_first_match(Premailex.html_tree(), needle(), (Premailex.html_node() ->
-                                                                Premailex.html_node())) ::
-          Premailex.html_tree()
-  def replace_first_match(tree, needle, fun) do
-    case do_replace_first_match(tree, needle, fun) do
-      {:halt, tree} -> tree
-      tree -> tree
+  @spec replace_first_match(
+          Premailex.html_tree() | Premailex.html_element(),
+          needle(),
+          (Premailex.html_node() -> Premailex.html_node())
+        ) ::
+          Premailex.html_tree() | Premailex.html_element()
+  def replace_first_match(tree_or_element, needle, fun) do
+    case do_replace_first_match(tree_or_element, needle, fun) do
+      {:halt, tree_or_element} -> tree_or_element
+      tree_or_element -> tree_or_element
     end
   end
 
@@ -122,8 +131,8 @@ defmodule Premailex.DOM do
     end
   end
 
-  defp do_replace_first_match(children, needle, fun) when is_list(children),
-    do: do_replace_first_match(children, needle, fun, [])
+  defp do_replace_first_match(tree, needle, fun) when is_list(tree),
+    do: do_replace_first_match(tree, needle, fun, [])
 
   defp do_replace_first_match(other, _needle, _fun), do: other
 
@@ -137,32 +146,38 @@ defmodule Premailex.DOM do
   end
 
   @doc """
-  Traverses tree calling the function on every element that matches one or
-  more selector items, replacing it with the result.
+  Traverses element tree calling the function on every element that matches one
+  or more selector items, replacing it with the result.
 
   ## Examples
 
       iex> Premailex.DOM.traverse_with_matching_items(
-      ...>   [{"div", [], [{"p", [], ["Hi"]}]}],
+      ...>   {"div", [], [{"p", [], ["Hi"]}]},
       ...>   [%{selector: "p"}],
       ...>   fn {tag, attrs, children}, _matched ->
       ...>     {tag, [{"matched", ""} | attrs], children}
       ...>   end)
-      [{"div", [], [{"p", [{"matched", ""}], ["Hi"]}]}]
+      {"div", [], [{"p", [{"matched", ""}], ["Hi"]}]}
   """
   @spec traverse_with_matching_items(
-          Premailex.html_tree(),
+          Premailex.html_tree() | Premailex.html_element(),
           [selector_item()],
           (Premailex.html_element(), nonempty_list(selector_item()) ->
              Premailex.html_element())
         ) ::
-          Premailex.html_tree()
-  def traverse_with_matching_items(tree, [], _fun), do: tree
+          Premailex.html_tree() | Premailex.html_element()
+  def traverse_with_matching_items(tree_or_element, [], _fun), do: tree_or_element
 
-  def traverse_with_matching_items(tree, selector_items, fun) do
+  def traverse_with_matching_items(tree, selector_items, fun) when is_list(tree) do
     selector_items_table = build_selector_items_lookup_table(selector_items)
 
     do_traverse_with_matching_items(tree, selector_items_table, fun, [])
+  end
+
+  def traverse_with_matching_items({_, _, _} = element, selector_items, fun) do
+    [result] = traverse_with_matching_items([element], selector_items, fun)
+
+    result
   end
 
   defp build_selector_items_lookup_table(selector_items) do
@@ -486,9 +501,13 @@ defmodule Premailex.DOM do
 
       iex> Premailex.DOM.all([{"html", [], [{"head", [], []}, {"body", [], [{"h1", [], ["Title"]}]}]}], "h1")
       [{"h1", [], ["Title"]}]
+
+      iex> Premailex.DOM.all({"div", [], [{"p", [], ["a"]}, {"p", [], ["b"]}]}, "p")
+      [{"p", [], ["a"]}, {"p", [], ["b"]}]
   """
-  @spec all(Premailex.html_tree(), selector()) :: [Premailex.html_element()]
-  def all(tree, selector) do
+  @spec all(Premailex.html_tree() | Premailex.html_element(), selector()) ::
+          [Premailex.html_element()]
+  def all(tree, selector) when is_list(tree) do
     compiled_selector_groups = compile_selector_groups(selector)
 
     traverse_select(tree, compiled_selector_groups, [], fn
@@ -496,6 +515,8 @@ defmodule Premailex.DOM do
       _node, false, descendants -> descendants
     end)
   end
+
+  def all({_, _, _} = element, selector), do: all([element], selector)
 
   defp traverse_select(nodes, compiled_selector_groups, ancestors, fun) do
     {total, by_tag} = count_siblings(nodes)
@@ -525,13 +546,23 @@ defmodule Premailex.DOM do
   Filters elements matching the selector out of the tree, collapsing
   redundant whitespace text nodes left behind.
 
+  Always returns a `t:Premailex.html_tree/0`, even when a single element is
+  passed in — if that element matches the selector the result is `[]`.
+
   ## Examples
 
       iex> Premailex.DOM.reject([{"html", [], [{"head", [], []}, {"body", [], [{"h1", [], ["Title"]}]}]}], "h1")
       [{"html", [], [{"head", [], []}, {"body", [], []}]}]
+
+      iex> Premailex.DOM.reject({"div", [], [{"p", [], ["a"]}, {"h1", [], ["b"]}]}, "h1")
+      [{"div", [], [{"p", [], ["a"]}]}]
+
+      iex> Premailex.DOM.reject({"h1", [], ["Title"]}, "h1")
+      []
   """
-  @spec reject(Premailex.html_tree(), selector()) :: Premailex.html_tree()
-  def reject(tree, selector) do
+  @spec reject(Premailex.html_tree() | Premailex.html_element(), selector()) ::
+          Premailex.html_tree()
+  def reject(tree, selector) when is_list(tree) do
     compiled_selector_groups = compile_selector_groups(selector)
 
     traverse_select(tree, compiled_selector_groups, [], fn
@@ -541,6 +572,8 @@ defmodule Premailex.DOM do
     end)
   end
 
+  def reject({_, _, _} = element, selector), do: reject([element], selector)
+
   defp collapse_whitespace(children) do
     Enum.dedup_by(children, fn
       text when is_binary(text) -> (String.trim(text) == "" && :whitespace) || text
@@ -549,14 +582,14 @@ defmodule Premailex.DOM do
   end
 
   @doc """
-  Extracts the concatenated text elements from the tree.
+  Extracts the concatenated text from the element.
 
   ## Examples
 
-      iex> Premailex.DOM.text_content({"html", [], [{"head", [], []}, {"body", [], [{"h1", [], ["Title"]}]}]})
+      iex> Premailex.DOM.text_content([{"html", [], [{"head", [], []}, {"body", [], [{"h1", [], ["Title"]}]}]}])
       "Title"
   """
-  @spec text_content(Premailex.html_tree()) :: String.t()
+  @spec text_content(Premailex.html_tree() | Premailex.html_element()) :: String.t()
   def text_content(tree) when is_list(tree), do: Enum.map_join(tree, &text_content/1)
   def text_content(text) when is_binary(text), do: text
   def text_content({:comment, _}), do: ""

@@ -4,12 +4,13 @@ defmodule Premailex do
              |> File.read!()
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
+             # Replace markdown linked HexDocs cross-references with just the
+             # reference so ExDoc can link them properly.
              |> then(&Regex.replace(~r/\[(`[^`]+`)\]\([^)]+\)/, &1, "\\1"))
+             # Replace OTP module references with links to the OTP docs.
              |> then(&Regex.replace(~r/`(:[a-z]+)`/, &1, "`m:\\1`"))
 
   require Logger
-
-  alias Premailex.DOM
 
   @type html :: String.t()
   @type html_element :: {String.t(), [{String.t(), String.t()}], [html_node()]}
@@ -26,7 +27,7 @@ defmodule Premailex do
 
   ## Examples
 
-      iex> Premailex.parse(~s(<p class=\"lead\">Hello</p>))
+      iex> Premailex.parse(~s(<p class="lead">Hello</p>))
       [{"p", [{"class", "lead"}], ["Hello"]}]
   """
   @spec parse(html(), Keyword.t()) :: html_tree()
@@ -140,7 +141,7 @@ defmodule Premailex do
 
   defp map_css_rules(tree, css_selector, options) do
     tree
-    |> DOM.all(css_selector)
+    |> Premailex.DOM.all(css_selector)
     |> Enum.flat_map(fn node ->
       node
       |> load_css(options)

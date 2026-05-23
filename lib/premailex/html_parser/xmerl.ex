@@ -35,8 +35,6 @@ defmodule Premailex.HTMLParser.Xmerl do
   """
   @behaviour Premailex.HTMLParser
 
-  require Logger
-
   @fragment_root "premailex-root"
   @comment_tag "premailex-comment"
   @void_tags ~w(area base br col embed hr img input link meta param source track wbr)
@@ -208,12 +206,7 @@ defmodule Premailex.HTMLParser.Xmerl do
 
   defp serialize_node({:comment, text}), do: "<!--#{text}-->"
 
-  defp serialize_node(text) when is_binary(text) do
-    text
-    |> String.replace("&", "&amp;")
-    |> String.replace("<", "&lt;")
-    |> String.replace(">", "&gt;")
-  end
+  defp serialize_node(text) when is_binary(text), do: serialize_text_content(text)
 
   defp serialize_node({tag, attrs, _children}) when tag in @void_tags do
     "<#{tag}#{serialize_attrs(attrs)}>"
@@ -223,13 +216,20 @@ defmodule Premailex.HTMLParser.Xmerl do
     "<#{tag}#{serialize_attrs(attrs)}>#{Enum.map_join(children, &serialize_node/1)}</#{tag}>"
   end
 
+  defp serialize_text_content(text) do
+    text
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+  end
+
   defp serialize_attrs(attrs) do
     Enum.map_join(attrs, fn {name, value} -> ~s( #{name}="#{escape_attr(value)}") end)
   end
 
   defp escape_attr(value) do
     value
-    |> serialize_node()
+    |> serialize_text_content()
     |> String.replace("\"", "&quot;")
   end
 end

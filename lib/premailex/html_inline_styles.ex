@@ -5,6 +5,8 @@ defmodule Premailex.HTMLInlineStyles do
 
   alias Premailex.{CSSParser, DOM}
 
+  @inline_style_specificity {1, 0, 0, 0}
+
   @doc """
   Processes an HTML tree adding inline styles from a list of CSS rules.
 
@@ -23,36 +25,41 @@ defmodule Premailex.HTMLInlineStyles do
   """
   @spec process(Premailex.html_tree(), [CSSParser.rule()]) :: Premailex.html_tree()
   def process(tree, css_rules) do
-    css_rules
-    |> apply_css_rules(tree)
+    tree
+    |> apply_css_rules(css_rules)
     |> remove_empty_comments()
   end
 
-  defp apply_css_rules(css_rules, tree) do
-    hidden_heads =
-      tree
-      |> DOM.all("head")
-      |> Enum.with_index()
-      |> Map.new(fn {head, i} ->
-        {Integer.to_string(i), head}
-      end)
-
-    visible_tree =
-      Enum.reduce(hidden_heads, tree, fn {index, head}, acc ->
-        DOM.replace_first_match(acc, head, fn _ ->
-          {"premailex", [{"data-index", index}], []}
-        end)
-      end)
+  defp apply_css_rules(tree, css_rules) do
+    {visible_tree, hidden_heads} = hide_heads(tree)
 
     visible_tree
     |> DOM.traverse_with_matching_items(css_rules, fn {tag, attrs, children}, matched_css_rules ->
       {tag, merge_css_rules_into_style(attrs, matched_css_rules), children}
     end)
-    |> DOM.replace_all_matches("premailex", fn {"premailex", attrs, _children} ->
-      {"data-index", index} = List.keyfind(attrs, "data-index", 0)
-
-      Map.fetch!(hidden_heads, index)
+    |> DOM.replace_all_matches(:comment, fn
+      {:comment, "premailex:head:" <> index} -> Map.fetch!(hidden_heads, index)
+      {:comment, comment} -> {:comment, comment}
     end)
+  end
+
+  defp hide_heads(tree) do
+    hidden_heads =
+      tree
+      |> DOM.all("head")
+      |> Enum.with_index()
+      |> Map.new(fn {head, index} ->
+        {to_string(index), head}
+      end)
+
+    visible_tree =
+      Enum.reduce(hidden_heads, tree, fn {index, head}, acc ->
+        DOM.replace_first_match(acc, head, fn _ ->
+          {:comment, "premailex:head:#{index}"}
+        end)
+      end)
+
+    {visible_tree, hidden_heads}
   end
 
   defp merge_css_rules_into_style(attrs, matched_css_rules) do
@@ -67,7 +74,7 @@ defmodule Premailex.HTMLInlineStyles do
           %{
             selector: "",
             declarations: CSSParser.parse_declaration_block(style),
-            specificity: {1, 0, 0, 0}
+            specificity: @inline_style_specificity
           }
           | matched_css_rules
         ]

@@ -58,6 +58,12 @@ defmodule Premailex.HTMLParser.MeeseeksTest do
                "\t\n"
              ]
     end
+
+    test "with invalid HTML" do
+      assert_raise ArgumentError, ~r/Meeseeks failed to parse HTML/, fn ->
+        Meeseeks.parse(<<0xFF, 0xFE>>)
+      end
+    end
   end
 
   describe "to_html/1" do

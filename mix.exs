@@ -83,11 +83,8 @@ defmodule Premailex.Mixfile do
         "CHANGELOG.md"
       ],
       groups_for_modules: [
-        Parsers: [
-          Premailex.CSSParser,
-          Premailex.HTMLParser
-        ],
         "HTML Parsers": [
+          Premailex.HTMLParser,
           Premailex.HTMLParser.Xmerl,
           Premailex.HTMLParser.Floki,
           Premailex.HTMLParser.LazyHTML,
