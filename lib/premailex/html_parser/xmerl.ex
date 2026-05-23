@@ -12,18 +12,11 @@ defmodule Premailex.HTMLParser.Xmerl do
 
   `:xmerl_sax_parser` is used to prevent atom leak.
 
-  ## Known limitations
+  ## Parser limitations
 
     * Only well-formed XML-like HTML is parsed. HTML5 shortcuts like unquoted
       attribute values (`<div data-x=a>`) or unclosed non-void tags are
       rejected.
-
-    * Only `:first-of-type` pseudo-class is implemented. Other pseudo-classes
-      (`:not`, `:nth-child`, `:hover`, ...) parse but never match and emit a
-      debug log.
-
-    * The column combinator (`||`) parses but never matches and emits a debug
-      log.
 
     * A round-trip through this parser is not lossless:
 
@@ -205,222 +198,12 @@ defmodule Premailex.HTMLParser.Xmerl do
     Base.url_decode64!(encoded, padding: false)
   end
 
-  defp unwrap_fragment({@fragment_root, _attrs, []}), do: []
-  defp unwrap_fragment({@fragment_root, _attrs, [single]}), do: single
-  defp unwrap_fragment({@fragment_root, _attrs, many}), do: many
+  defp unwrap_fragment({@fragment_root, _attrs, children}), do: children
 
   @impl true
   @doc false
-  def all(tree, selector) do
-    tree
-    |> List.wrap()
-    |> traverse(compile_selector_groups(selector), [], fn
-      node, true, descendants -> [node | descendants]
-      _node, false, descendants -> descendants
-    end)
-  end
-
-  defp compile_selector_groups(selector) do
-    selector
-    |> Premailex.CSSParser.parse_selector_groups()
-    |> Enum.map(fn group ->
-      Enum.map(group, fn step ->
-        compiled_class_patterns =
-          Enum.map(step.classes, &:binary.compile_pattern(<<" ", &1::binary, " ">>))
-
-        # Override `:classes` with the compiled patterns as the selector group
-        # will only be used internally here
-        %{step | classes: compiled_class_patterns}
-      end)
-    end)
-  end
-
-  defp traverse(nodes, compiled_selector_groups, ancestors, fun) when is_list(nodes) do
-    {results, _previous_siblings} =
-      Enum.flat_map_reduce(nodes, [], fn
-        {tag, attrs, children} = node, previous_siblings ->
-          context =
-            %{
-              tag: tag,
-              attrs: attrs,
-              first_of_type?: not Enum.any?(previous_siblings, &(&1.tag == tag)),
-              previous_siblings: previous_siblings
-            }
-
-          matched? =
-            Enum.any?(compiled_selector_groups, &matches_selector_group?(context, &1, ancestors))
-
-          descendants = traverse(children, compiled_selector_groups, [context | ancestors], fun)
-
-          {fun.(node, matched?, descendants), [context | previous_siblings]}
-
-        node, previous_siblings ->
-          {fun.(node, false, []), previous_siblings}
-      end)
-
-    results
-  end
-
-  defp traverse(node, compiled_selector_groups, ancestors, fun) do
-    case traverse([node], compiled_selector_groups, ancestors, fun) do
-      [single] -> single
-      list -> list
-    end
-  end
-
-  defp matches_selector_group?(_context, [], _ancestors), do: false
-
-  defp matches_selector_group?(context, compiled_selector_group, ancestors) do
-    do_match_selector_steps?(compiled_selector_group, context, ancestors)
-  end
-
-  defp do_match_selector_steps?([step | rest], context, ancestors) do
-    match_segment?(context, step) and
-      match_remaining_selector_steps?(rest, context, ancestors)
-  end
-
-  defp match_segment?(%{tag: tag, attrs: attrs} = context, selector_segment) do
-    # Guard each check on the *expected* value first so we skip the
-    # `List.keyfind/3` when the selector doesn't constrain that field — the
-    # common case for tag/descendant selectors.
-    match_tag?(tag, selector_segment.tag) and
-      match_id?(attrs, selector_segment.id) and
-      match_classes?(attrs, selector_segment.classes) and
-      match_attributes?(attrs, selector_segment.attrs) and
-      match_pseudos?(context, selector_segment.pseudos)
-  end
-
-  defp match_tag?(_tag, nil), do: true
-  defp match_tag?(_tag, "*"), do: true
-  defp match_tag?(tag, tag), do: true
-  defp match_tag?(_tag, _expected_tag), do: false
-
-  defp get_attr(attrs, name) do
-    case List.keyfind(attrs, name, 0) do
-      {_, value} -> value
-      nil -> nil
-    end
-  end
-
-  defp match_id?(_attrs, nil), do: true
-  defp match_id?(attrs, expected_id), do: get_attr(attrs, "id") == expected_id
-
-  defp match_classes?(_attrs, []), do: true
-
-  defp match_classes?(attrs, expected_classes) do
-    case List.keyfind(attrs, "class", 0) do
-      nil ->
-        false
-
-      {_, classes} ->
-        padded = <<" ", classes::binary, " ">>
-
-        Enum.all?(expected_classes, &(:binary.match(padded, &1) != :nomatch))
-    end
-  end
-
-  defp match_attributes?(_attrs, []), do: true
-
-  defp match_attributes?(attrs, expected_attrs) do
-    Enum.all?(expected_attrs, fn
-      {name, value} -> get_attr(attrs, name) == value
-      name -> has_attr?(attrs, name)
-    end)
-  end
-
-  defp has_attr?(attrs, name), do: List.keymember?(attrs, name, 0)
-
-  defp match_pseudos?(_context, []), do: true
-
-  defp match_pseudos?(context, pseudos) do
-    Enum.all?(pseudos, fn
-      %{kind: :pseudo_element} ->
-        false
-
-      %{kind: :pseudo_class, name: "first-of-type"} ->
-        context.first_of_type?
-
-      %{kind: :pseudo_class, name: unknown_pseudo_class} ->
-        Logger.debug(fn ->
-          "Pseudo-class #{unknown_pseudo_class} is not implemented. Ignoring."
-        end)
-
-        false
-    end)
-  end
-
-  defp match_remaining_selector_steps?([], _context, _ancestors), do: true
-
-  defp match_remaining_selector_steps?([step | _rest] = steps, context, ancestors) do
-    case step.combinator do
-      :descendant ->
-        match_descendant_selector_steps?(steps, ancestors)
-
-      :child ->
-        match_child_selector_steps?(steps, ancestors)
-
-      :adjacent ->
-        match_adjacent_selector_steps?(steps, context, ancestors)
-
-      :sibling ->
-        match_sibling_selector_steps?(steps, context, ancestors)
-
-      :column ->
-        Logger.debug(fn -> "Column combinator (||) is not implemented. Ignoring." end)
-
-        false
-    end
-  end
-
-  defp match_descendant_selector_steps?(_steps, []), do: false
-
-  defp match_descendant_selector_steps?(steps, [candidate | ancestors]) do
-    do_match_selector_steps?(steps, candidate, ancestors) or
-      match_descendant_selector_steps?(steps, ancestors)
-  end
-
-  defp match_child_selector_steps?(_steps, []), do: false
-
-  defp match_child_selector_steps?(steps, [candidate | ancestors]) do
-    do_match_selector_steps?(steps, candidate, ancestors)
-  end
-
-  defp match_adjacent_selector_steps?(_steps, %{previous_siblings: []}, _ancestors), do: false
-
-  defp match_adjacent_selector_steps?(steps, %{previous_siblings: [candidate | _]}, ancestors) do
-    do_match_selector_steps?(steps, candidate, ancestors)
-  end
-
-  defp match_sibling_selector_steps?(steps, %{previous_siblings: previous_siblings}, ancestors) do
-    Enum.any?(previous_siblings, &do_match_selector_steps?(steps, &1, ancestors))
-  end
-
-  @impl true
-  @doc false
-  def filter(tree, selector) do
-    traverse(tree, compile_selector_groups(selector), [], fn
-      _node, true, _ -> []
-      {tag, attrs, _}, false, children -> [{tag, attrs, collapse_whitespace(children)}]
-      node, false, _ -> [node]
-    end)
-  end
-
-  defp collapse_whitespace(children) do
-    Enum.dedup_by(children, fn
-      text when is_binary(text) ->
-        (String.trim(text) == "" && :whitespace) || text
-
-      other ->
-        other
-    end)
-  end
-
-  @impl true
-  @doc false
-  def to_string(tree) do
-    tree
-    |> List.wrap()
-    |> Enum.map_join(&serialize_node/1)
+  def to_html(tree) do
+    Enum.map_join(tree, &serialize_node/1)
   end
 
   defp serialize_node({:comment, text}), do: "<!--#{text}-->"
@@ -449,11 +232,4 @@ defmodule Premailex.HTMLParser.Xmerl do
     |> serialize_node()
     |> String.replace("\"", "&quot;")
   end
-
-  @impl true
-  @doc false
-  def text(text) when is_binary(text), do: text
-  def text(list) when is_list(list), do: Enum.map_join(list, &text/1)
-  def text({:comment, _text}), do: ""
-  def text({_element, _attrs, children}), do: text(children)
 end

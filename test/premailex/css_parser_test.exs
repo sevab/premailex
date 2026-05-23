@@ -383,6 +383,9 @@ defmodule Premailex.CSSParserTest do
       assert [[%{attrs: [{"href", "/go"}]}]] =
                CSSParser.parse_selector_groups(~s([\nhref="/go"\t ]))
 
+      assert [[%{attrs: [{"href", "/go"}]}]] = CSSParser.parse_selector_groups("[href = /go]")
+      assert [[%{attrs: [{"href", "foo"}]}]] = CSSParser.parse_selector_groups("[href=foo ]")
+
       assert [[%{attrs: ["href", {"class", "cta"}]}]] =
                CSSParser.parse_selector_groups("[href][class=cta]")
     end
@@ -425,13 +428,23 @@ defmodule Premailex.CSSParserTest do
       assert_invalid_selector(~s(a[href="/g"o]))
       assert_invalid_selector(~s|a[href=/g(o]|)
       assert_invalid_selector(~s|a[href=/go)]|)
+      assert_invalid_selector(~s|a[href=foo"bar"]|)
+      assert_invalid_selector("[href=foo bar]")
     end
 
     test "with pseudo class selector" do
       assert [[%{pseudos: [%{name: "first-of-type", expression: nil, kind: :pseudo_class}]}]] =
                CSSParser.parse_selector_groups(":first-of-type")
 
-      assert [[%{pseudos: [%{name: "nth-child", expression: "2", kind: :pseudo_class}]}]] =
+      assert [
+               [
+                 %{
+                   pseudos: [
+                     %{name: "nth-child", expression: "2", kind: :pseudo_class, nth: {0, 2}}
+                   ]
+                 }
+               ]
+             ] =
                CSSParser.parse_selector_groups(":nth-child(2)")
 
       assert [[%{pseudos: [%{name: "required"}, %{name: "invalid"}]}]] =
@@ -453,6 +466,98 @@ defmodule Premailex.CSSParserTest do
       assert_invalid_selector("a:()")
       assert_invalid_selector("p:nth-child(")
       assert_invalid_selector("p:nth-child(2))")
+    end
+
+    test "with functional pseudo class selector with An+B notation" do
+      assert [
+               [%{pseudos: [%{expression: "odd", nth: {2, 1}}]}],
+               [%{pseudos: [%{expression: "even", nth: {2, 0}}]}],
+               [%{pseudos: [%{expression: "  Even  ", nth: {2, 0}}]}]
+             ] =
+               CSSParser.parse_selector_groups(
+                 ":nth-child(odd), :nth-child(even), :nth-child(  Even  )"
+               )
+
+      assert [
+               [%{pseudos: [%{expression: "0", nth: {0, 0}}]}],
+               [%{pseudos: [%{expression: "5", nth: {0, 5}}]}],
+               [%{pseudos: [%{expression: "+5", nth: {0, 5}}]}],
+               [%{pseudos: [%{expression: "-5", nth: {0, -5}}]}]
+             ] =
+               CSSParser.parse_selector_groups(
+                 ":nth-child(0), :nth-child(5), :nth-child(+5), :nth-child(-5)"
+               )
+
+      assert [
+               [%{pseudos: [%{expression: "n", nth: {1, 0}}]}],
+               [%{pseudos: [%{expression: "+n", nth: {1, 0}}]}],
+               [%{pseudos: [%{expression: "-n", nth: {-1, 0}}]}]
+             ] =
+               CSSParser.parse_selector_groups(":nth-child(n), :nth-child(+n), :nth-child(-n)")
+
+      assert [
+               [%{pseudos: [%{expression: "2n", nth: {2, 0}}]}],
+               [%{pseudos: [%{expression: "-2n", nth: {-2, 0}}]}]
+             ] =
+               CSSParser.parse_selector_groups(":nth-child(2n), :nth-child(-2n)")
+
+      assert [
+               [%{pseudos: [%{expression: "2n+1", nth: {2, 1}}]}],
+               [%{pseudos: [%{expression: "2n-1", nth: {2, -1}}]}],
+               [%{pseudos: [%{expression: "-n+1", nth: {-1, 1}}]}],
+               [%{pseudos: [%{expression: "  2n + 1  ", nth: {2, 1}}]}],
+               [%{pseudos: [%{expression: "12n+345", nth: {12, 345}}]}]
+             ] =
+               CSSParser.parse_selector_groups(
+                 ":nth-child(2n+1), :nth-child(2n-1), :nth-child(-n+1), :nth-child(  2n + 1  ), :nth-child(12n+345)"
+               )
+    end
+
+    test "with functional pseudo class selector with invalid An+B notation" do
+      assert [
+               [%{pseudos: [%{expression: nil, nth: :invalid}]}],
+               [%{pseudos: [%{expression: "", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "   ", nth: :invalid}]}]
+             ] =
+               CSSParser.parse_selector_groups(":nth-child, :nth-child(), :nth-child(   )")
+
+      assert [
+               [%{pseudos: [%{expression: "invalid", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "--1", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "+", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "+ 5", nth: :invalid}]}]
+             ] =
+               CSSParser.parse_selector_groups(
+                 ":nth-child(invalid), :nth-child(--1), :nth-child(+), :nth-child(+ 5)"
+               )
+
+      assert [
+               [%{pseudos: [%{expression: "odd5", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "5odd", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "2nn", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "2n+1a", nth: :invalid}]}]
+             ] =
+               CSSParser.parse_selector_groups(
+                 ":nth-child(odd5), :nth-child(5odd), :nth-child(2nn), :nth-child(2n+1a)"
+               )
+
+      assert [
+               [%{pseudos: [%{expression: "2n+", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "2n+a", nth: :invalid}]}]
+             ] =
+               CSSParser.parse_selector_groups(":nth-child(2n+), :nth-child(2n+a)")
+
+      assert [
+               [%{pseudos: [%{expression: "2 5n", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "2n+1 5", nth: :invalid}]}],
+               [%{pseudos: [%{expression: "2n 5", nth: :invalid}]}]
+             ] =
+               CSSParser.parse_selector_groups(
+                 ":nth-child(2 5n), :nth-child(2n+1 5), :nth-child(2n 5)"
+               )
+
+      assert [[%{pseudos: [%{nth: :invalid}]}]] =
+               CSSParser.parse_selector_groups(":nth-child(2n+1 of .foo)")
     end
 
     test "with pseudo element selector" do
@@ -512,6 +617,7 @@ defmodule Premailex.CSSParserTest do
       assert_invalid_selector("div ~")
       assert_invalid_selector("div ||")
       assert_invalid_selector("div > > p")
+      assert_invalid_selector("#>p")
     end
 
     test "with multiple selector groups" do
@@ -631,16 +737,22 @@ defmodule Premailex.CSSParserTest do
                %{property: "color", value: "red", important?: false}
              ]
     end
+
+    test "with declaration value containing escaped quote" do
+      assert CSSParser.parse_declaration_block(~s|content: "a\\"b";|) == [
+               %{property: "content", value: ~s|"a\\"b"|, important?: false}
+             ]
+    end
   end
 
-  test "merge/1" do
+  test "cascade/1" do
     rules =
       CSSParser.parse("""
       p { color: red !important; font-size: 12px; }
       p { color: blue; font-size: 14px; }
       """)
 
-    assert CSSParser.merge(rules) == [
+    assert CSSParser.cascade(rules) == [
              %{property: "color", value: "red !important", important?: true},
              %{property: "font-size", value: "14px", important?: false}
            ]
