@@ -2,6 +2,7 @@ defmodule Premailex.HTMLInlineStylesTest do
   use ExUnit.Case
   doctest Premailex.HTMLInlineStyles
 
+  alias ExUnit.CaptureLog
   alias Premailex.{CSSParser, HTMLInlineStyles}
 
   @css_sources [
@@ -95,12 +96,16 @@ defmodule Premailex.HTMLInlineStylesTest do
   describe "process/2" do
     test "applies CSS rules" do
       css_rules = Enum.flat_map(@css_sources, &Premailex.CSSParser.parse/1)
+      tree = Premailex.parse(@input)
 
-      parsed =
-        @input
-        |> Premailex.parse()
-        |> HTMLInlineStyles.process(css_rules)
-        |> Premailex.to_html()
+      {parsed, log} =
+        CaptureLog.with_log(fn ->
+          tree
+          |> HTMLInlineStyles.process(css_rules)
+          |> Premailex.to_html()
+        end)
+
+      assert log =~ "Pseudo-class :hover is not implemented. Ignoring."
 
       assert parsed =~ "<html xmlns=\"http://www.w3.org/1999/xhtml\" style=\"color: black;\">"
 

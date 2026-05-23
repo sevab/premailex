@@ -211,7 +211,7 @@ defmodule Premailex.DOM do
        do: :ok
 
   defp warn_unsupported_pseudo(%{kind: :pseudo_class, name: name}) do
-    Logger.debug(fn -> "Pseudo-class #{name} is not implemented. Ignoring." end)
+    Logger.debug(fn -> "Pseudo-class :#{name} is not implemented. Ignoring." end)
   end
 
   defp register_table_selector_item(selector_items_table, [target | _ancestors], item) do

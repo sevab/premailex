@@ -511,7 +511,7 @@ defmodule Premailex.DOMTest do
     test "with unsupported pseudo-class selector", %{tree: tree} do
       assert capture_log(fn ->
                assert DOM.all(tree, "a:hover") == []
-             end) =~ "Pseudo-class hover is not implemented. Ignoring."
+             end) =~ "Pseudo-class :hover is not implemented. Ignoring."
     end
 
     test "with descendant combinator selector", %{tree: tree} do
