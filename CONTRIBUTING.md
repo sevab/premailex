@@ -10,7 +10,7 @@ Premailex supports several HTML parsers. The parser can be set with the `HTML_PA
 HTML_PARSER=Floki mix test
 ```
 
-CI runs the [full matrix](.github/workflows/ci.yml) across Floki, Meeseeks, and LazyHTML.
+CI runs the [full matrix](.github/workflows/ci.yml) across LazyHTML, Floki, Meeseeks, and Xmerl.
 
 ## Code quality
 

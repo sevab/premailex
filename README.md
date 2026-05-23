@@ -73,7 +73,7 @@ end
 
 ## HTML parser
 
-Premailex supports [`Floki`](https://github.com/philss/floki), [`LazyHTML`](https://github.com/wojtekmach/lazy_html), [`Meeseeks`](https://github.com/mischov/meeseeks), and [`:xmerl`](https://www.erlang.org/doc/apps/xmerl/xmerl_ug.html) and will automatically use the first one available based on the dependencies in `mix.exs`:
+Premailex supports [`LazyHTML`](https://github.com/dashbitco/lazy_html), [`Floki`](https://github.com/philss/floki), [`Meeseeks`](https://github.com/mischov/meeseeks), and [`:xmerl`](https://www.erlang.org/doc/apps/xmerl/xmerl_ug.html) and will automatically use the first one available based on the dependencies in `mix.exs`:
 
 ```elixir
 defp deps do

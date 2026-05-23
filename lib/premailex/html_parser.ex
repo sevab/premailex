@@ -2,7 +2,7 @@ defmodule Premailex.HTMLParser do
   @moduledoc """
   Behaviour for HTML parsing.
 
-  By default Premailex prefers LazyHTML, then Floki, then Meeseeks,
+  By default Premailex prefers `LazyHTML`, then `Floki`, then `Meeseeks`,
   falling back to the built-in `Premailex.HTMLParser.Xmerl` when none of
   them is loaded. The active parser can be configured:
 

@@ -7,8 +7,8 @@ defmodule Premailex.HTMLParser.Xmerl do
   does not support real-world HTML that often can be malformed XML.
 
   For more robust HTML parsing, it's recommended to use
-  `Premailex.HTMLParser.Floki`, `Premailex.HTMLParser.Meeseeks`, or
-  `Premailex.HTMLParser.LazyHTML`.
+  `Premailex.HTMLParser.LazyHTML`, `Premailex.HTMLParser.Floki`, or,
+  `Premailex.HTMLParser.Meeseeks`.
 
   `:xmerl_sax_parser` is used to prevent atom leak.
 
@@ -117,7 +117,7 @@ defmodule Premailex.HTMLParser.Xmerl do
               #{__MODULE__} could not parse the HTML.
 
               The built-in fallback parser only supports simple, XML-like HTML email markup.
-              For more permissive HTML parsing, add Floki, Meeseeks, or LazyHTML to your dependencies.
+              For more permissive HTML parsing, add LazyHTML, Floki, or Meeseeks to your dependencies.
 
               Original error: #{inspect(reason)}
               """
