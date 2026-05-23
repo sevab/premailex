@@ -79,8 +79,8 @@ Premailex supports [`Floki`](https://github.com/philss/floki), [`LazyHTML`](http
 defp deps do
   [
     {:premailex, "~> 0.3.20"},
-    # {:floki, "~> 0.19"},
     # {:lazy_html, "~> 0.1.11"},
+    # {:floki, "~> 0.24"},
     # {:meeseeks, "~> 0.11"}
   ]
 end

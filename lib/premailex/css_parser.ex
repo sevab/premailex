@@ -2,14 +2,13 @@ defmodule Premailex.CSSParser do
   @moduledoc """
   CSS parser used by Premailex.
 
-  ## Limitations
+  ## Parser limitations
 
     * At-rules (`@media`, `@font-face`, `@import`, etc.) and comments are
-      stripped;
-
+      stripped.
     * Specificity for `:not(...)`, `:is(...)`, `:where(...)` is approximated
       as a single pseudo-class, though Selectors Level 4 needs the specificity
-      inherited from their argument (or `0` for `:where`);
+      inherited from their argument (or `0` for `:where`).
   """
   require Logger
 
@@ -19,11 +18,19 @@ defmodule Premailex.CSSParser do
   @typedoc "A CSS rule with computed specificity."
   @type rule :: %{declarations: [declaration()], selector: String.t(), specificity: specificity()}
 
-  @typedoc "A CSS pseudo-class or pseudo-element."
+  @typedoc """
+  A CSS pseudo-class or pseudo-element.
+
+  Pseudo-classes in the `an+b` family (`:nth-child`, `:nth-of-type`,
+  `:nth-last-child`, `:nth-last-of-type`) carry an additional `:nth` field
+  holding the parsed `{a, b}` coefficients, or `:invalid` if the expression
+  was missing or could not be parsed.
+  """
   @type pseudo :: %{
-          name: String.t(),
-          expression: String.t() | nil,
-          kind: :pseudo_class | :pseudo_element
+          required(:name) => String.t(),
+          required(:expression) => String.t() | nil,
+          required(:kind) => :pseudo_class | :pseudo_element,
+          optional(:nth) => {integer(), integer()} | :invalid
         }
 
   @typedoc """
@@ -46,15 +53,16 @@ defmodule Premailex.CSSParser do
 
   Structured as `{inline?, ids, classes, elements}`:
 
-    * `inline?` — If it's an inlined style;
-    * `ids` — count of ID selectors;
-    * `classes` — count of class, attribute, and pseudo-class selectors;
-    * `elements` — count of tag and pseudo-element selectors;
+    * `inline?` — `1` if it's an inlined style.
+    * `ids` — count of ID selectors.
+    * `classes` — count of class, attribute, and pseudo-class selectors.
+    * `elements` — count of tag and pseudo-element selectors.
   """
   @type specificity :: {0..1, non_neg_integer(), non_neg_integer(), non_neg_integer()}
 
   @selector_whitespace [?\s, ?\t, ?\n, ?\r, ?\f]
   @step %{tag: nil, id: nil, classes: [], attrs: [], pseudos: [], combinator: nil}
+  @nth_pseudo_classes ~w(nth-child nth-of-type nth-last-child nth-last-of-type)
 
   @initial_selector_state %{
     type: :tag,
@@ -68,7 +76,7 @@ defmodule Premailex.CSSParser do
   }
 
   @doc """
-  Parses a CSS string into a map.
+  Parses a CSS string into a list of CSS rules.
 
   Ignores all at-rules (e.g. `@media`, `@font-face`, etc.) and comments, as
   these are not relevant for inlining CSS.
@@ -161,14 +169,14 @@ defmodule Premailex.CSSParser do
     specificity =
       group
       |> parse_selector_group()
-      |> Enum.reduce({0, 0, 0, 0}, fn step, {a, b, c, d} ->
-        ids = (step.id && 1) || 0
+      |> Enum.reduce({0, 0, 0, 0}, fn step, {0 = _inline?, ids, classes, elements} ->
+        step_ids = (step.id && 1) || 0
         pseudo_classes = Enum.count(step.pseudos, &(&1.kind == :pseudo_class))
-        classes = length(step.classes) + length(step.attrs) + pseudo_classes
+        step_classes = length(step.classes) + length(step.attrs) + pseudo_classes
         pseudo_elements = Enum.count(step.pseudos, &(&1.kind == :pseudo_element))
-        elements = ((step.tag && step.tag != "*" && 1) || 0) + pseudo_elements
+        step_elements = ((step.tag && step.tag != "*" && 1) || 0) + pseudo_elements
 
-        {a, b + ids, c + classes, d + elements}
+        {0, ids + step_ids, classes + step_classes, elements + step_elements}
       end)
 
     %{selector: group, declarations: declarations, specificity: specificity}
@@ -614,7 +622,7 @@ defmodule Premailex.CSSParser do
          %{type: {kind, name}, bracket_depth: 0, paren_depth: 1, quote_char: nil} = state
        )
        when kind in [:pseudo_class, :pseudo_element] do
-    pseudo = %{name: name, expression: state.buffer, kind: kind}
+    pseudo = build_pseudo(name, state.buffer, kind)
     step = %{state.step | pseudos: [pseudo | state.step.pseudos]}
 
     parse_selector_steps(rest, %{state | type: :tag, step: step, buffer: "", paren_depth: 0})
@@ -666,22 +674,12 @@ defmodule Premailex.CSSParser do
   defp update_selector_step(:pseudo_class, _step, ""), do: :error
 
   defp update_selector_step(:pseudo_class, step, name),
-    do:
-      {:ok,
-       %{
-         step
-         | pseudos: [%{name: name, expression: nil, kind: :pseudo_class} | step.pseudos]
-       }}
+    do: {:ok, %{step | pseudos: [build_pseudo(name, nil, :pseudo_class) | step.pseudos]}}
 
   defp update_selector_step(:pseudo_element, _step, ""), do: :error
 
   defp update_selector_step(:pseudo_element, step, name),
-    do:
-      {:ok,
-       %{
-         step
-         | pseudos: [%{name: name, expression: nil, kind: :pseudo_element} | step.pseudos]
-       }}
+    do: {:ok, %{step | pseudos: [build_pseudo(name, nil, :pseudo_element) | step.pseudos]}}
 
   defp flush_selector_step(@step, pending_relation, steps), do: {:ok, steps, pending_relation}
 
@@ -747,7 +745,7 @@ defmodule Premailex.CSSParser do
     case String.trim_leading(rest) do
       "" -> {:ok, name}
       <<"=", rest::binary>> -> parse_attribute_selector(rest, name, "")
-      _ -> :error
+      _other_key -> :error
     end
   end
 
@@ -774,14 +772,12 @@ defmodule Premailex.CSSParser do
        when char in @selector_whitespace do
     case String.trim_leading(rest) do
       "" -> {:ok, {name, value}}
-      _ -> :error
+      _other_value -> :error
     end
   end
 
   defp parse_attribute_selector(<<char, rest::binary>>, name, value),
     do: parse_attribute_selector(rest, name, <<value::binary, char>>)
-
-  defp parse_attribute_selector(<<>>, _name, _value, _quote_char), do: :error
 
   defp parse_attribute_selector(<<"\\", quote_char, rest::binary>>, name, value, quote_char),
     do: parse_attribute_selector(rest, name, <<value::binary, quote_char>>, quote_char)
@@ -789,12 +785,80 @@ defmodule Premailex.CSSParser do
   defp parse_attribute_selector(<<quote_char, rest::binary>>, name, value, quote_char) do
     case String.trim_leading(rest) do
       "" -> {:ok, {name, value}}
-      _ -> :error
+      _other_value -> :error
     end
   end
 
   defp parse_attribute_selector(<<char, rest::binary>>, name, value, quote_char),
     do: parse_attribute_selector(rest, name, <<value::binary, char>>, quote_char)
+
+  defp build_pseudo(name, expression, :pseudo_class) when name in @nth_pseudo_classes do
+    %{name: name, expression: expression, kind: :pseudo_class, nth: parse_an_plus_b(expression)}
+  end
+
+  defp build_pseudo(name, expression, kind),
+    do: %{name: name, expression: expression, kind: kind}
+
+  defp parse_an_plus_b(nil), do: :invalid
+  defp parse_an_plus_b(expr) when is_binary(expr), do: parse_anb(String.downcase(expr))
+
+  defp parse_anb(<<c, rest::binary>>) when c in @selector_whitespace, do: parse_anb(rest)
+  defp parse_anb(<<>>), do: :invalid
+
+  defp parse_anb("odd" <> rest), do: parse_anb_eof(rest, {2, 1})
+  defp parse_anb("even" <> rest), do: parse_anb_eof(rest, {2, 0})
+
+  defp parse_anb(<<"+", rest::binary>>), do: parse_anb_after_sign(rest, 1)
+  defp parse_anb(<<"-", rest::binary>>), do: parse_anb_after_sign(rest, -1)
+  defp parse_anb(rest), do: parse_anb_after_sign(rest, 1)
+
+  defp parse_anb_after_sign(<<"n", rest::binary>>, sign),
+    do: parse_anb_after_n(rest, sign)
+
+  defp parse_anb_after_sign(<<d, _::binary>> = rest, sign) when d in ?0..?9,
+    do: parse_anb_a_digits(rest, sign, 0)
+
+  defp parse_anb_after_sign(_, _), do: :invalid
+
+  defp parse_anb_a_digits(<<d, rest::binary>>, sign, acc) when d in ?0..?9,
+    do: parse_anb_a_digits(rest, sign, acc * 10 + (d - ?0))
+
+  defp parse_anb_a_digits(<<"n", rest::binary>>, sign, acc),
+    do: parse_anb_after_n(rest, sign * acc)
+
+  defp parse_anb_a_digits(<<>>, sign, acc), do: {0, sign * acc}
+  defp parse_anb_a_digits(_, _, _), do: :invalid
+
+  defp parse_anb_after_n(<<c, rest::binary>>, a) when c in @selector_whitespace,
+    do: parse_anb_after_n(rest, a)
+
+  defp parse_anb_after_n(<<"+", rest::binary>>, a), do: parse_anb_before_b(rest, a, 1)
+  defp parse_anb_after_n(<<"-", rest::binary>>, a), do: parse_anb_before_b(rest, a, -1)
+  defp parse_anb_after_n(<<>>, a), do: {a, 0}
+  defp parse_anb_after_n(_, _), do: :invalid
+
+  defp parse_anb_before_b(<<c, rest::binary>>, a, sign) when c in @selector_whitespace,
+    do: parse_anb_before_b(rest, a, sign)
+
+  defp parse_anb_before_b(<<d, rest::binary>>, a, sign) when d in ?0..?9,
+    do: parse_anb_b_digits(rest, a, sign, d - ?0)
+
+  defp parse_anb_before_b(_, _, _), do: :invalid
+
+  defp parse_anb_b_digits(<<d, rest::binary>>, a, sign, acc) when d in ?0..?9,
+    do: parse_anb_b_digits(rest, a, sign, acc * 10 + (d - ?0))
+
+  defp parse_anb_b_digits(<<c, rest::binary>>, a, sign, acc) when c in @selector_whitespace,
+    do: parse_anb_eof(rest, {a, sign * acc})
+
+  defp parse_anb_b_digits(<<>>, a, sign, acc), do: {a, sign * acc}
+  defp parse_anb_b_digits(_, _, _, _), do: :invalid
+
+  defp parse_anb_eof(<<c, rest::binary>>, result) when c in @selector_whitespace,
+    do: parse_anb_eof(rest, result)
+
+  defp parse_anb_eof(<<>>, result), do: result
+  defp parse_anb_eof(_, _), do: :invalid
 
   @doc """
   Parses a CSS declaration block string into a list of maps.
@@ -938,22 +1002,26 @@ defmodule Premailex.CSSParser do
   end
 
   @doc """
-  Merges CSS rules.
+  Combines CSS rules into a final list of declarations.
+
+  Uses the [cascade algorithm](https://www.w3.org/TR/css-cascade-4/#cascading).
+  Conflicts between declarations for the same property are resolved by
+  `!important` and then by specificity.
 
   ## Examples
 
       iex> rules = Premailex.CSSParser.parse("p {background-color: #fff !important; color: #000;} p {background-color: #000;}")
-      iex> Premailex.CSSParser.merge(rules)
+      iex> Premailex.CSSParser.cascade(rules)
       [
         %{property: "background-color", value: "#fff !important", important?: true},
         %{property: "color", value: "#000", important?: false}
       ]
   """
-  @spec merge([rule()]) :: [declaration()]
-  def merge(rules) do
+  @spec cascade([rule()]) :: [declaration()]
+  def cascade(rules) do
     rules
     |> Enum.reduce(%{}, fn %{declarations: declarations, specificity: specificity}, acc ->
-      Enum.reduce(declarations, acc, &merge_declaration(&2, &1, specificity))
+      Enum.reduce(declarations, acc, &cascade_declaration(&2, &1, specificity))
     end)
     |> Enum.reduce([], fn {_property, {declaration, _specificity}}, acc ->
       [declaration | acc]
@@ -961,8 +1029,7 @@ defmodule Premailex.CSSParser do
     |> Enum.reverse()
   end
 
-  defp merge_declaration(acc, declaration, specificity) do
-    # Cascading order: https://www.w3.org/TR/css-cascade-4/#cascading
+  defp cascade_declaration(acc, declaration, specificity) do
     Map.update(acc, declaration.property, {declaration, specificity}, fn {current_declaration,
                                                                           current_specificity} ->
       case {current_declaration.important?, declaration.important?} do

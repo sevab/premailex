@@ -10,7 +10,7 @@ defmodule Benchmark do
 
     * `:extra_columns` — extra column definitions inserted between
       `nodes` and `time (ms)`, in the shape `{name, width,
-      :left | :right}`
+      :left | :right}`.
   """
   def run!(cases, opts \\ []) do
     extra_columns = Keyword.get(opts, :extra_columns, [])

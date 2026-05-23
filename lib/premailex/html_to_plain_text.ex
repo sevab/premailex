@@ -2,28 +2,23 @@ defmodule Premailex.HTMLToPlainText do
   @moduledoc """
   Module that converts HTML emails to plain text.
   """
-  alias Premailex.{HTMLParser, Util}
+  alias Premailex.DOM
 
   @line_length 65
 
   @doc """
-  Processes HTML string into a plain text string.
+  Processes an HTML tree into a plain text string.
 
   ## Examples
 
-      iex> Premailex.HTMLToPlainText.process("<html><body><ul><li>Test</li></ul></body></html>")
+      iex> tree = Premailex.parse("<html><body><ul><li>Test</li></ul></body></html>")
+      iex> Premailex.HTMLToPlainText.process(tree)
       "* Test"
-
   """
-  @spec process(String.t() | HTMLParser.html_tree()) :: String.t()
-  def process(html) when is_binary(html) do
-    html
-    |> HTMLParser.parse()
-    |> process()
-  end
-
+  @spec process(Premailex.html_tree()) :: String.t()
   def process(tree) do
     tree
+    |> get_visible_tree()
     |> clear_whitespace()
     |> line_breaks()
     |> horizontal_rules()
@@ -34,13 +29,20 @@ defmodule Premailex.HTMLToPlainText do
     |> unordered_lists()
     |> ordered_lists()
     |> tables()
-    |> HTMLParser.text()
+    |> DOM.text_content()
     |> wordwrap()
     |> clear_linebreaks()
     |> String.trim()
   end
 
-  defp images(tree), do: Util.traverse(tree, "img", &image(&1))
+  defp get_visible_tree(tree) do
+    case DOM.all(tree, "body") do
+      [] -> tree
+      bodies -> bodies
+    end
+  end
+
+  defp images(tree), do: DOM.replace_all_matches(tree, "img", &image(&1))
 
   defp image({_, attr, _}) do
     attr
@@ -48,13 +50,13 @@ defmodule Premailex.HTMLToPlainText do
     |> elem(1)
   end
 
-  defp line_breaks(tree), do: Util.traverse(tree, "br", &line_break(&1))
+  defp line_breaks(tree), do: DOM.replace_all_matches(tree, "br", &line_break(&1))
   defp line_break(_), do: "\n"
 
-  defp headings(tree), do: Util.traverse(tree, Enum.map(1..6, &"h#{&1}"), &heading(&1))
+  defp headings(tree), do: DOM.replace_all_matches(tree, Enum.map(1..6, &"h#{&1}"), &heading(&1))
 
   defp heading({type, _, content}) do
-    text = HTMLParser.text(content)
+    text = DOM.text_content(content)
 
     length =
       text
@@ -80,7 +82,7 @@ defmodule Premailex.HTMLToPlainText do
     text <> "\n" <> heading_line
   end
 
-  defp links(tree), do: Util.traverse(tree, "a", &link(&1))
+  defp links(tree), do: DOM.replace_all_matches(tree, "a", &link(&1))
 
   defp link({_, attr, content}) do
     url =
@@ -89,7 +91,7 @@ defmodule Premailex.HTMLToPlainText do
       |> elem(1)
       |> String.replace("mailto:", "")
 
-    text = HTMLParser.text(content)
+    text = DOM.text_content(content)
 
     link(String.trim(url), String.trim(text))
   end
@@ -99,72 +101,74 @@ defmodule Premailex.HTMLToPlainText do
   defp link(url, _, true), do: url
   defp link(url, text, false), do: "#{text} (#{url})"
 
-  defp paragraphs(tree), do: Util.traverse(tree, "p", &paragraph(&1))
-  defp paragraph({_, _, content}), do: HTMLParser.text(content) <> "\n\n"
+  defp paragraphs(tree), do: DOM.replace_all_matches(tree, "p", &paragraph(&1))
+  defp paragraph({_, _, content}), do: DOM.text_content(content) <> "\n\n"
 
-  defp horizontal_rules(tree), do: Util.traverse(tree, "hr", &horizontal_rule(&1))
+  defp horizontal_rules(tree), do: DOM.replace_all_matches(tree, "hr", &horizontal_rule(&1))
 
   defp horizontal_rule({_, _, _}), do: String.duplicate("-", @line_length) <> "\n\n"
 
-  defp unordered_lists(tree), do: Util.traverse(tree, "ul", &unordered_list_items(&1))
+  defp unordered_lists(tree), do: DOM.replace_all_matches(tree, "ul", &unordered_list_items(&1))
 
   defp unordered_list_items({_, _, items}) do
     items
-    |> Util.traverse("li", &unordered_list_item(&1))
+    |> DOM.replace_all_matches("li", &unordered_list_item(&1))
     |> join_binaries("")
   end
 
   defp unordered_list_item({_, _, content}) do
-    "* " <> HTMLParser.text(content) <> "\n"
+    "* " <> DOM.text_content(content) <> "\n"
   end
 
-  defp join_binaries(elements, seperator) do
+  defp join_binaries(elements, separator) do
     Enum.reduce(elements, "", fn
       element, "" when is_binary(element) ->
         element
 
       element, acc when is_binary(element) ->
-        acc <> seperator <> element
+        acc <> separator <> element
 
       _element, acc ->
         acc
     end)
   end
 
-  defp ordered_lists(tree), do: Util.traverse(tree, "ol", &ordered_list_items(&1))
+  defp ordered_lists(tree), do: DOM.replace_all_matches(tree, "ol", &ordered_list_items(&1))
 
   defp ordered_list_items({_, _, items}) do
     items
     |> Enum.with_index(1)
-    |> Enum.map(fn {item, n} -> Util.traverse(item, "li", &ordered_list_item(&1, n)) end)
+    |> Enum.map(fn {item, n} ->
+      DOM.replace_all_matches(item, "li", &ordered_list_item(&1, n))
+    end)
     |> join_binaries("")
   end
 
   defp ordered_list_item({_, _, content}, n) do
-    "#{n}. " <> HTMLParser.text(content) <> "\n"
+    "#{n}. " <> DOM.text_content(content) <> "\n"
   end
 
-  defp tables(tree), do: Util.traverse(tree, "table", &table(&1))
+  defp tables(tree), do: DOM.replace_all_matches(tree, "table", &table(&1))
 
   defp table({_, _, table_rows}) do
     # Calling tables/1 to make sure all nested tables have been processed
     table_rows
     |> tables()
     |> flatten_table_elements()
-    |> Util.traverse("tr", &table_rows(&1))
+    |> DOM.replace_all_matches("tr", &table_rows(&1))
     |> join_binaries("")
   end
 
   defp table_rows({_, _, [{"th", _, _} | _rest] = table_cells}) do
     table_cells
-    |> Util.traverse("th", &HTMLParser.text(&1))
+    |> DOM.replace_all_matches("th", &DOM.text_content(&1))
     |> join_binaries(" ")
     |> Kernel.<>("\n")
   end
 
   defp table_rows({_, _, table_cells}) do
     table_cells
-    |> Util.traverse("td", &HTMLParser.text(&1))
+    |> DOM.replace_all_matches("td", &DOM.text_content(&1))
     |> join_binaries(" ")
     |> Kernel.<>("\n")
   end

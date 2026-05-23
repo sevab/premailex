@@ -4,20 +4,54 @@
 
 Requires Elixir 1.14 or higher.
 
-This release contains significant performance improvements with typical HTML emails seeing a ~4x speedup when inlining styles. The release is also now zero dependency with the new fallback HTML parser `Premailex.HTMLParser.Xmerl`.
+This release contains significant performance improvements, with typical HTML emails seeing a 30x+ speedup when inlining styles. Premailex is also now zero dependency thanks to the new fallback HTML parser `Premailex.HTMLParser.Xmerl`.
 
-* Fixed compiler warnings in `Premailex.HTMLParser.Meeseeks`
-* Fixed invalid spec in `Premailex.HTMLInlineStyles.process/3`
-* `Floki` is now optional
+### Architecture changes
+
+The layers between parser, DOM operations, and the top-level API have been reshaped:
+
+* `Premailex.HTMLParser` is now a thin behaviour with only `parse/1` and `to_html/1` callbacks
+* `Premailex.DOM` is a new module that handles all selector matching, traversal, and tree manipulation
+* `Premailex.Util` has been removed with functions moved into `Premailex.DOM`
+* `Premailex.HTMLInlineStyles.process/2` is now a pure tree to tree transformation that accepts an explicit list of CSS rules
+
+### Breaking changes
+
+* `Premailex.HTMLInlineStyles` no longer exposes `process/3`, use `Premailex.HTMLInlineStyles.process/2`
+* `Premailex.HTMLToPlainText.process/1` no longer accepts HTML string
+* `Premailex.HTMLParser` behaviour callback `to_string/1` renamed to `to_html/1`
+* `Premailex.HTMLParser` behaviour no longer requires `all/2`, `filter/2`, or `text/1` callbacks
+* `Premailex.HTMLParser` no longer exposes `parse/1`, use `Premailex.parse/2` instead
+* `Premailex.HTMLParser` no longer exposes `to_string/1`, use `Premailex.to_html/2` instead
+* `Premailex.HTMLParser` no longer exposes `all/2`, use `Premailex.DOM.all/2` instead
+* `Premailex.HTMLParser` no longer exposes `filter/2`, use `Premailex.DOM.reject/2` instead
+* `Premailex.HTMLParser` no longer exposes `text/1`, use `Premailex.DOM.text_content/1` instead
+* `Premailex.Util` has been removed:
+  * `Premailex.Util.traverse/3` is now `Premailex.DOM.replace_all_matches/3`
+  * `Premailex.Util.traverse_until_first/3` is now `Premailex.DOM.replace_first_match/3`
+  * `Premailex.Util.traverse_and_update/2` is removed, use `Premailex.DOM.traverse_with_matching_items/3` for indexed single-walk updates
+* Renamed `Premailex.CSSParser.parse_rules/1` to `Premailex.CSSParser.parse_declaration_block/1`
+* Renamed `Premailex.CSSParser.merge/1` to `Premailex.CSSParser.cascade/1`
+* `Premailex.parse/2` now always returns a list
+* `Floki` minimum version bumped from `~> 0.19` to `~> 0.24`
+* `Premailex.to_inline_css/2` `:optimize` option has been replaced by a single boolean option `:remove_style_tags`
+
+### Additions
+
+* Added `Premailex.parse/2` and `Premailex.to_html/2`
 * Added support for `LazyHTML`
 * Added fallback support for `:xmerl`
 * Added `Premailex.CSSParser.split_selector_groups/1` for selector group splitting
-* `Premailex.CSSParser` rewritten and no longer uses regular expression to parse CSS
-* Renamed `Premailex.CSSParser.parse_rules/1` to `Premailex.CSSParser.parse_declaration_block/1`
+* Added `Premailex.DOM.traverse_with_matching_items/3` for indexed single-walk tree updates
+* Added support for structural pseudo-classes: `:first-child`, `:last-child`, `:only-child`, `:last-of-type`, `:only-of-type`, `:nth-child`, `:nth-of-type`, `:nth-last-child`, `:nth-last-of-type`, `:empty`, `:root` (`An+B`, `odd`, and `even` arguments supported)
+
+### Other
+
+* `Floki` is now optional
+* `Premailex.CSSParser` rewritten and no longer uses regular expressions to parse CSS
 * `Premailex.CSSParser.parse_declaration_block/1` now does case insensitive, terminal `!important` detection
-* `Premailex.HTMLInlineStyles.process/3` tree traversal performance changed from O(N^2) to O(N)
-* `Premailex.Util.traverse_and_update/2` added
-* `Premailex.Util.traverse_reduce/3` removed
+* `Premailex.HTMLInlineStyles.process/2` tree traversal performance changed from O(N^2) to O(N)
+* Fixed compiler warnings in `Premailex.HTMLParser.Meeseeks`
 
 ## v0.3.20 (2025-01-20)
 

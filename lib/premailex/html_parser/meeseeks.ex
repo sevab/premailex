@@ -11,13 +11,7 @@ if Code.ensure_loaded?(Meeseeks) do
           ]
         end
     """
-
-    require Logger
-
-    alias Meeseeks.{Document, Selector.CSS}
-    alias Premailex.HTMLParser
-
-    @behaviour HTMLParser
+    @behaviour Premailex.HTMLParser
 
     @impl true
     @doc false
@@ -25,58 +19,54 @@ if Code.ensure_loaded?(Meeseeks) do
       html
       |> Meeseeks.parse()
       |> Meeseeks.tree()
-      |> case do
-        [html] -> html
-        html -> html
+      |> unwrap_fragment(html)
+    end
+
+    # Meeseeks wraps all fragments in an <html> element, so we need to unwrap
+    # it if the input was just a fragment.
+    defp unwrap_fragment(tree, html) do
+      case Regex.match?(~r/<html/i, html) do
+        true ->
+          tree
+
+        false ->
+          # This may break if Meeseeks changes how it wraps fragments. If it
+          # does this should be moved into a function that handles the
+          # different versions of Meeseeks.
+          [{"html", [], [{"head", [], []}, {"body", [], fragment}]}] = tree
+
+          fragment
       end
     end
 
     @impl true
     @doc false
-    def all(tree, selector) do
-      selector = CSS.compile_selectors(selector)
-
-      tree
-      |> Meeseeks.parse(:tuple_tree)
-      |> Meeseeks.all(selector)
-      |> Enum.map(&Meeseeks.tree/1)
-    rescue
-      e in Meeseeks.Error ->
-        Logger.warning("Meeseeks error: " <> inspect(e))
-        []
+    def to_html(tree) do
+      wrap_fragment(tree, fn tree ->
+        tree
+        |> Meeseeks.parse(:tuple_tree)
+        |> Meeseeks.html()
+      end)
     end
 
-    @impl true
-    @doc false
-    def to_string(tree) do
-      tree
-      |> Meeseeks.parse(:tuple_tree)
-      |> Meeseeks.html()
+    @premailex_root "premailex-root"
+
+    defp wrap_fragment(tree, fun) do
+      case document?(tree) do
+        true -> fun.(tree)
+        false -> do_wrap_fragment(tree, fun)
+      end
     end
 
-    @impl true
-    @doc false
-    def text(text) when is_binary(text), do: text
-    def text(list) when is_list(list), do: Enum.map_join(list, "", &text/1)
-    def text({:comment, _text}), do: ""
-    def text({_element, _attrs, children}), do: text(children)
+    defp document?([]), do: false
+    defp document?([{"html", _attrs, _children} | _]), do: true
+    defp document?([_other | nodes]), do: document?(nodes)
 
-    @impl true
-    @doc false
-    def filter(tree, selector) do
-      selector = CSS.compile_selectors(selector)
-      parsed_tree = Meeseeks.parse(tree, :tuple_tree)
+    defp do_wrap_fragment(tree, fun) do
+      html = fun.([{@premailex_root, [], tree}])
+      [_, html] = Regex.run(~r/<#{@premailex_root}>(.*)<\/#{@premailex_root}>/s, html)
 
-      parsed_tree
-      |> Meeseeks.all(selector)
-      |> Enum.reduce(parsed_tree, fn e, acc ->
-        Document.delete_node(acc, e.id)
-      end)
-      |> Meeseeks.tree()
-      |> then(fn
-        [filtered_tree] -> (is_list(tree) && [filtered_tree]) || filtered_tree
-        filtered_tree -> filtered_tree
-      end)
+      html
     end
   end
 end

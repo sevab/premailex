@@ -3,91 +3,104 @@ defmodule Premailex.HTMLToPlainTextTest do
   doctest Premailex.HTMLToPlainText
 
   @input """
-  <h1>Heading 1</h1>
-  <h1>Heading<br/>with <br /><span>HTML</span></h1>
-  <h2>Heading 2</h2>
-  <h3>Heading 3</h3>
+  <html>
+    <head>
+      <title>
+        Test
+      </title>
+      <style>
+        /* This is a comment */
+        .hidden { display: none; }
+      </style>
+    </head>
+    <body>
+      <h1>Heading 1</h1>
+      <h1>Heading<br/>with <br /><span>HTML</span></h1>
+      <h2>Heading 2</h2>
+      <h3>Heading 3</h3>
 
-  <p><a href="http://example.com">Example link</a></p>
-  <p><a href="http://example.com">http://example.com</a></p>
-  <p><a href="http://example.com">HTTP://EXAMPLE.COM</a></p>
-  <p><a href="http://example.com"></a></p>
-  <p><span>Test</span> some very long paragraph with <strong>bold</strong> and <i>italic</i> text, including an <a href="http://example.com">inline link</a>. This should break up on multiple lines.</p>
-  <p><span>Test</span>   <strong>consecutive</strong> <i>tags</i>.</p>
+      <p><a href="http://example.com">Example link</a></p>
+      <p><a href="http://example.com">http://example.com</a></p>
+      <p><a href="http://example.com">HTTP://EXAMPLE.COM</a></p>
+      <p><a href="http://example.com"></a></p>
+      <p><span>Test</span> some very long paragraph with <strong>bold</strong> and <i>italic</i> text, including an <a href="http://example.com">inline link</a>. This should break up on multiple lines.</p>
+      <p><span>Test</span>   <strong>consecutive</strong> <i>tags</i>.</p>
 
-  <hr />
+      <hr />
 
-  <img href="logo.png" alt="Test image" /><br/>
-  <img href="logo.png" /><br/>
+      <img href="logo.png" alt="Test image" /><br/>
+      <img href="logo.png" /><br/>
 
-  <ul>
-    <li>Item 1</li>
-    <li>Item 2</li>
-    <li>Item 3</li>
-  </ul>
-  <ol>
-    <li>Item 1</li>
-    <li>Item 2</li>
-    <li>Item 3</li>
-  </ol>
+      <ul>
+        <li>Item 1</li>
+        <li>Item 2</li>
+        <li>Item 3</li>
+      </ul>
+      <ol>
+        <li>Item 1</li>
+        <li>Item 2</li>
+        <li>Item 3</li>
+      </ol>
 
-  <p>HTML entities: &amp; &copy;</p>
-  <p>        Paragraph with space        </p>
-  <p>
-    Doesn't break URL: http://www.example.com/this-is-a-very-long-uri-to-verify-that-wordwrap-breaks-will-not-break-this-url
-    <a href="http://www.example.com/this-is-a-very-long-uri-to-verify-that-wordwrap-breaks-will-not-break-this-url">Paranthesis test</a>
-  </p>
+      <p>HTML entities: &amp; &copy;</p>
+      <p>        Paragraph with space        </p>
+      <p>
+        Doesn't break URL: http://www.example.com/this-is-a-very-long-uri-to-verify-that-wordwrap-breaks-will-not-break-this-url
+        <a href="http://www.example.com/this-is-a-very-long-uri-to-verify-that-wordwrap-breaks-will-not-break-this-url">Paranthesis test</a>
+      </p>
 
-  <table>
-    <thead>
-      <tr>
-        <th>thead key</th>
-        <th>thead value</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>tbody key</td>
-        <td>tbody value</td>
-      </tr>
-    </tbody>
-    <tfoot>
-      <tr>
-        <td>tfoot key</td>
-        <td>tfoot value</td>
-      </tr>
-    </tfoot>
-    <tr>
-      <th>Header key</th>
-      <th>Header value</th>
-    </tr>
-    <tr>
-      <td>Key:</td>
-      <td>Value</td>
-    </tr>
-    <tr>
-      <td>Key 2:</td>
-      <td>
-        <table>
-          <!-- This is a comment -->
+      <table>
+        <thead>
           <tr>
-            <td>Nested key:</td>
-            <td>Value</td>
+            <th>thead key</th>
+            <th>thead value</th>
           </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+        </thead>
+        <tbody>
+          <tr>
+            <td>tbody key</td>
+            <td>tbody value</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>tfoot key</td>
+            <td>tfoot value</td>
+          </tr>
+        </tfoot>
+        <tr>
+          <th>Header key</th>
+          <th>Header value</th>
+        </tr>
+        <tr>
+          <td>Key:</td>
+          <td>Value</td>
+        </tr>
+        <tr>
+          <td>Key 2:</td>
+          <td>
+            <table>
+              <!-- This is a comment -->
+              <tr>
+                <td>Nested key:</td>
+                <td>Value</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
 
-  <!--[if (gte mso 9)|(IE)]>
-  <p>Downlevel-hidden comment</p>
-  <![endif]-->
+      <!--[if (gte mso 9)|(IE)]>
+      <p>Downlevel-hidden comment</p>
+      <![endif]-->
 
-  <!--[if !mso]><!-- -->
-  <p>Downlevel-revealed comment</p>
-  <!--<![endif]-->
+      <!--[if !mso]><!-- -->
+      <p>Downlevel-revealed comment</p>
+      <!--<![endif]-->
 
-  <!-- This is a comment -->
+      <!-- This is a comment -->
+    </body>
+  </html>
   """
 
   @parsed """
@@ -149,28 +162,19 @@ defmodule Premailex.HTMLToPlainTextTest do
   Downlevel-revealed comment
   """
 
-  test "process/1" do
-    assert Premailex.HTMLToPlainText.process(@input) == String.trim(@parsed)
-  end
+  describe "process/1" do
+    setup do
+      {:ok, tree: Premailex.parse(@input)}
+    end
 
-  test "process/1 with attributes" do
-    assert Premailex.HTMLToPlainText.process(add_attributes(@input)) == String.trim(@parsed)
-  end
+    test "with document fragment" do
+      tree = [{"p", [], ["Test"]}]
 
-  defp add_attributes(html) do
-    html
-    |> Premailex.HTMLParser.parse()
-    |> add_attribute("data-attribute", "value")
-    |> Premailex.HTMLParser.to_string()
-  end
+      assert Premailex.HTMLToPlainText.process(tree) == "Test"
+    end
 
-  defp add_attribute(elements, key, value) when is_list(elements) do
-    Enum.map(elements, &add_attribute(&1, key, value))
+    test "with document", %{tree: tree} do
+      assert Premailex.HTMLToPlainText.process(tree) == String.trim(@parsed)
+    end
   end
-
-  defp add_attribute({tag, attrs, children}, key, value) do
-    {tag, attrs ++ [{key, value}], add_attribute(children, key, value)}
-  end
-
-  defp add_attribute(other, _key, _value), do: other
 end
