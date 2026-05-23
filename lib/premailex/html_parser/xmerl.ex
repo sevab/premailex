@@ -1,6 +1,6 @@
 defmodule Premailex.HTMLParser.Xmerl do
   @moduledoc """
-  A simple HTML parser using Erlang's built-in `:xmerl` library.
+  A simple HTML parser using Erlang's built-in `m::xmerl` library.
 
   This is used as a fallback when no other HTML parsing libraries are
   available. It is designed to handle well-formed XML-like HTML emails, but it
@@ -10,7 +10,7 @@ defmodule Premailex.HTMLParser.Xmerl do
   `Premailex.HTMLParser.LazyHTML`, `Premailex.HTMLParser.Floki`, or,
   `Premailex.HTMLParser.Meeseeks`.
 
-  `:xmerl_sax_parser` is used to prevent atom leak.
+  `m::xmerl_sax_parser` is used to prevent atom leak.
 
   ## Parser limitations
 
@@ -27,7 +27,7 @@ defmodule Premailex.HTMLParser.Xmerl do
         character (e.g. `&copy;` round-trips as `©`).
 
       * `xmlns:*` namespace declarations always appear first in the attribute
-        list regardless of source position as `:xmerl_sax_parser` strips them
+        list regardless of source position as `m::xmerl_sax_parser` strips them
         from the element's attribute list).
 
       * Void elements always serialise as `<br>` (HTML style) regardless of

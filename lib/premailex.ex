@@ -4,6 +4,8 @@ defmodule Premailex do
              |> File.read!()
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
+             |> then(&Regex.replace(~r/\[(`[^`]+`)\]\([^)]+\)/, &1, "\\1"))
+             |> then(&Regex.replace(~r/`(:[a-z]+)`/, &1, "`m:\\1`"))
 
   require Logger
 

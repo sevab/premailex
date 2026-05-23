@@ -3,7 +3,7 @@ if Code.ensure_loaded?(Floki) do
     @moduledoc """
     HTML parser implementation using Floki.
 
-    Add `:floki` to your dependencies in `mix.exs` to use this parser:
+    Add `Floki` to your dependencies in `mix.exs` to use this parser:
 
         defp deps do
           [

@@ -1,9 +1,11 @@
 defmodule Premailex.HTTPAdapter.Httpc do
   @moduledoc """
-  HTTP adapter module for making http requests with `:httpc`.
+  HTTP adapter module for making http requests with `m::httpc`.
 
-  SSL support will automatically be enabled if the `:certifi` and
-  `:ssl_verify_fun` libraries exists in your project.
+  SSL support will automatically be enabled if the
+  [`:certifi`](https://hexdocs.pm/certifi/) and
+  [`:ssl_verify_fun`](https://hex.pm/packages/ssl_verify_fun) libraries exists
+  in your project.
   """
   alias Premailex.HTTPAdapter
 

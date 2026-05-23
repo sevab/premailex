@@ -3,7 +3,7 @@ if Code.ensure_loaded?(LazyHTML) do
     @moduledoc """
     HTML parser implementation using LazyHTML.
 
-    Add `:lazy_html` to your dependencies in `mix.exs` to use this parser:
+    Add `LazyHTML` to your dependencies in `mix.exs` to use this parser:
 
         defp deps do
           [

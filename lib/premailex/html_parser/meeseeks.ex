@@ -3,7 +3,7 @@ if Code.ensure_loaded?(Meeseeks) do
     @moduledoc """
     HTML parser implementation using Meeseeks.
 
-    Add `:meeseeks` to your dependencies in `mix.exs` to use this parser:
+    Add `Meeseeks` to your dependencies in `mix.exs` to use this parser:
 
         defp deps do
           [
