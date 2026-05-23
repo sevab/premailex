@@ -32,6 +32,7 @@ The layers between parser, DOM operations, and the top-level API have been resha
   * `Premailex.Util.traverse_and_update/2` is removed, use `Premailex.DOM.traverse_with_matching_items/3` for indexed single-walk updates
 * Renamed `Premailex.CSSParser.parse_rules/1` to `Premailex.CSSParser.parse_declaration_block/1`
 * Renamed `Premailex.CSSParser.merge/1` to `Premailex.CSSParser.cascade/1`
+* `Premailex.HTTPAdapter` behaviour's `request/5` callback no longer requires the `Premailex.HTTPAdapter.HTTPResponse` struct in favor of using a map
 * `Premailex.parse/2` now always returns a list
 * `Floki` minimum version bumped from `~> 0.19` to `~> 0.24`
 * `Premailex.to_inline_css/2` `:optimize` option has been replaced by a single boolean option `:remove_style_tags`

@@ -20,25 +20,22 @@ defmodule Premailex.HTTPAdapter do
         http_adapter: MyHTTPAdapter
   """
 
-  defmodule HTTPResponse do
-    @moduledoc false
-
-    @type header :: {binary(), binary()}
-    @type t :: %__MODULE__{
-            status: integer(),
-            headers: [header()],
-            body: binary()
-          }
-
-    defstruct status: 200, headers: [], body: ""
-  end
-
   @type method :: :get | :post
   @type body :: binary() | nil
   @type headers :: [{binary(), binary()}]
 
+  @typedoc "An HTTP response returned by an adapter's `request/5` callback."
+  @type response :: %{
+          status: non_neg_integer(),
+          headers: headers(),
+          body: binary()
+        }
+
+  @doc """
+  Makes an HTTP request.
+  """
   @callback request(method(), binary(), body(), headers(), Keyword.t()) ::
-              {:ok, map()} | {:error, any()}
+              {:ok, response()} | {:error, any()}
 
   @spec user_agent_header() :: {binary(), binary()}
   def user_agent_header do

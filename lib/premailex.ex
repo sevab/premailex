@@ -113,12 +113,8 @@ defmodule Premailex do
     do_to_inline_css(html_or_tree, options)
   end
 
-  defp http_adapter do
-    case Application.get_env(:premailex, :http_adapter, Premailex.HTTPAdapter.Httpc) do
-      {adapter, opts} -> {adapter, opts}
-      adapter -> {adapter, nil}
-    end
-  end
+  defp http_adapter,
+    do: Application.get_env(:premailex, :http_adapter, Premailex.HTTPAdapter.Httpc)
 
   defp do_to_inline_css(html, options) when is_binary(html) do
     html
@@ -162,7 +158,11 @@ defmodule Premailex do
   end
 
   defp load_url(url, options) do
-    {http_adapter, opts} = Keyword.fetch!(options, :http_adapter)
+    {http_adapter, opts} =
+      case Keyword.fetch!(options, :http_adapter) do
+        {adapter, opts} -> {adapter, opts}
+        adapter -> {adapter, nil}
+      end
 
     case http_adapter.request(:get, url, nil, [], opts) do
       {:ok, %{status: status, body: body}} when status in 200..399 ->

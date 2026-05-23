@@ -60,25 +60,20 @@ defmodule PremailexTest do
 
     @tag external_css_scheme: :https
     test "when external styles loads with TLS", %{input: input} do
-      on_exit(fn ->
-        Application.delete_env(:premailex, :http_adapter)
-      end)
+      http_adapter =
+        {
+          Premailex.HTTPAdapter.Httpc,
+          [
+            ssl: [
+              verify: :verify_peer,
+              depth: 99,
+              cacerts: TestServer.x509_suite().cacerts,
+              verify_fun: {&:ssl_verify_hostname.verify_fun/3, check_hostname: ~c"localhost"}
+            ]
+          ]
+        }
 
-      ssl_opts =
-        [
-          verify: :verify_peer,
-          depth: 99,
-          cacerts: TestServer.x509_suite().cacerts,
-          verify_fun: {&:ssl_verify_hostname.verify_fun/3, check_hostname: ~c"localhost"}
-        ]
-
-      Application.put_env(
-        :premailex,
-        :http_adapter,
-        {Premailex.HTTPAdapter.Httpc, [ssl: ssl_opts]}
-      )
-
-      assert Premailex.to_inline_css(input) =~ "color: black"
+      assert Premailex.to_inline_css(input, http_adapter: http_adapter) =~ "color: black"
     end
 
     test "with `:css_selector` option only loads matching sources", %{input: input} do

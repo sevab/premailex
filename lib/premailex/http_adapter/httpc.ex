@@ -5,7 +5,7 @@ defmodule Premailex.HTTPAdapter.Httpc do
   SSL support will automatically be enabled if the `:certifi` and
   `:ssl_verify_fun` libraries exists in your project.
   """
-  alias Premailex.{HTTPAdapter, HTTPAdapter.HTTPResponse}
+  alias Premailex.HTTPAdapter
 
   @behaviour HTTPAdapter
 
@@ -52,7 +52,7 @@ defmodule Premailex.HTTPAdapter.Httpc do
 
     body = IO.iodata_to_binary(body)
 
-    {:ok, %HTTPResponse{status: status, headers: headers, body: body}}
+    {:ok, %{status: status, headers: headers, body: body}}
   end
 
   defp format_response({:error, error}), do: {:error, error}
