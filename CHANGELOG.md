@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Requires Elixir 1.14 or higher.
+Requires Elixir 1.15 or higher.
 
 This release contains significant performance improvements, with typical HTML emails seeing a 30x+ speedup when inlining styles. Premailex is also now zero dependency thanks to the new fallback HTML parser `Premailex.HTMLParser.Xmerl`.
 

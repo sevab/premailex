@@ -8,7 +8,7 @@ defmodule Premailex.Mixfile do
     [
       app: :premailex,
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       xref: [
