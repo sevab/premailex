@@ -7,7 +7,7 @@ defmodule Premailex.HTMLParser.Xmerl do
   does not support real-world HTML that often can be malformed XML.
 
   For more robust HTML parsing, it's recommended to use
-  `Premailex.HTMLParser.LazyHTML`, `Premailex.HTMLParser.Floki`, or,
+  `Premailex.HTMLParser.LazyHTML`, `Premailex.HTMLParser.Floki`, or
   `Premailex.HTMLParser.Meeseeks`.
 
   `m::xmerl_sax_parser` is used to prevent atom leak.

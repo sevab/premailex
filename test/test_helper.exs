@@ -1,6 +1,6 @@
 ExUnit.start()
 
-html_parser = System.get_env("HTML_PARSER", "Floki")
+html_parser = System.get_env("HTML_PARSER", "Xmerl")
 html_parser = Module.concat(Premailex.HTMLParser, html_parser)
 
 Application.put_env(:premailex, :html_parser, html_parser)

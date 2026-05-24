@@ -40,7 +40,7 @@ defmodule Benchmark do
   defp init!(columns) do
     html_parser =
       System.get_env("HTML_PARSER") ||
-        raise "Please specify HTML_PARSER environment variable, e.g. `HTML_PARSER=Floki`"
+        raise "Please specify HTML_PARSER environment variable, e.g. `HTML_PARSER=Xmerl`"
 
     Application.put_env(
       :premailex,

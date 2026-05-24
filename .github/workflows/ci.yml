@@ -35,7 +35,7 @@ jobs:
   test:
     strategy:
       matrix:
-        html_parser: [Floki, Meeseeks, LazyHTML, Xmerl]
+        html_parser: [LazyHTML, Floki, Meeseeks, Xmerl]
         version:
           - otp: 29.0
             elixir: 1.19

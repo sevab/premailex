@@ -7,7 +7,7 @@ Thanks for thinking about contributing to Premailex.
 Premailex supports several HTML parsers. The parser can be set with the `HTML_PARSER` environment variable:
 
 ```bash
-HTML_PARSER=Floki mix test
+HTML_PARSER=Xmerl mix test
 ```
 
 CI runs the [full matrix](.github/workflows/ci.yml) across LazyHTML, Floki, Meeseeks, and Xmerl.
@@ -27,8 +27,8 @@ mix dialyzer
 Performance-sensitive changes should be checked against the benchmark scripts in `benchmark/`. `HTML_PARSER` is required:
 
 ```bash
-HTML_PARSER=Floki mix run benchmark/to_inline_css.exs
-HTML_PARSER=Floki mix run benchmark/to_text.exs
+HTML_PARSER=Xmerl mix run benchmark/to_inline_css.exs
+HTML_PARSER=Xmerl mix run benchmark/to_text.exs
 ```
 
 ## Submitting a PR

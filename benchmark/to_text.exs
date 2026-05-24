@@ -11,7 +11,7 @@ defmodule Benchmark.ToText do
 
   Run with:
 
-      HTML_PARSER=Floki mix run benchmark/to_text.exs
+      HTML_PARSER=Xmerl mix run benchmark/to_text.exs
   """
 
   def run do

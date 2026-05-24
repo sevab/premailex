@@ -21,7 +21,7 @@ defmodule Benchmark.ToInlineCSS do
 
   Run with:
 
-      HTML_PARSER=Floki mix run benchmark/to_inline_css.exs
+      HTML_PARSER=Xmerl mix run benchmark/to_inline_css.exs
   """
 
   def run do
