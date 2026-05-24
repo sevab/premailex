@@ -5,6 +5,11 @@ defmodule Premailex.HTMLToPlainText do
   alias Premailex.DOM
 
   @line_length 65
+  @heading_tags Enum.map(1..6, &"h#{&1}")
+
+  @inline_tags ~w(a abbr acronym b bdo big br button cite code dfn em i img
+                  input kbd label map object q samp script select small span
+                  strong sub sup textarea time tt var)
 
   @doc """
   Processes an HTML tree into a plain text string.
@@ -42,144 +47,147 @@ defmodule Premailex.HTMLToPlainText do
     end
   end
 
-  defp images(tree), do: DOM.replace_all_matches(tree, "img", &image(&1))
+  defp images(tree), do: DOM.replace_all_matches(tree, "img", &image/1)
 
-  defp image({_, attr, _}) do
-    case List.keyfind(attr, "alt", 0) do
+  defp image({"img", attrs, []}) do
+    case List.keyfind(attrs, "alt", 0) do
       {"alt", value} -> value
       nil -> ""
     end
   end
 
-  defp line_breaks(tree), do: DOM.replace_all_matches(tree, "br", &line_break(&1))
-  defp line_break(_), do: "\n"
+  defp line_breaks(tree), do: DOM.replace_all_matches(tree, "br", &line_break/1)
 
-  defp headings(tree), do: DOM.replace_all_matches(tree, Enum.map(1..6, &"h#{&1}"), &heading(&1))
+  defp line_break({"br", _attrs, []}), do: "\n"
 
-  defp heading({type, _, content}) do
-    text = DOM.text_content(content)
+  defp headings(tree), do: DOM.replace_all_matches(tree, @heading_tags, &heading/1)
 
-    length =
+  defp heading({type, _attrs, children}) do
+    text = DOM.text_content(children)
+
+    line_length =
       text
       |> String.split("\n")
-      |> Enum.map(&String.length(&1))
+      |> Enum.map(&String.length/1)
       |> Enum.max()
 
-    "\n\n" <> heading(type, text, length) <> "\n\n"
+    "\n\n" <> heading(type, text, line_length) <> "\n\n"
   end
 
-  defp heading("h1", text, length) do
-    heading_line = String.duplicate("*", length)
+  defp heading("h1", text, line_length) do
+    heading_line = String.duplicate("*", line_length)
+
     heading_line <> "\n" <> text <> "\n" <> heading_line
   end
 
-  defp heading("h2", text, length) do
-    heading_line = String.duplicate("-", length)
+  defp heading("h2", text, line_length) do
+    heading_line = String.duplicate("-", line_length)
+
     heading_line <> "\n" <> text <> "\n" <> heading_line
   end
 
-  defp heading(_, text, length) do
-    heading_line = String.duplicate("-", length)
+  defp heading(_, text, line_length) do
+    heading_line = String.duplicate("-", line_length)
+
     text <> "\n" <> heading_line
   end
 
-  defp links(tree), do: DOM.replace_all_matches(tree, "a", &link(&1))
+  defp links(tree), do: DOM.replace_all_matches(tree, "a", &link/1)
 
-  defp link({_, attr, content}) do
-    url =
-      case List.keyfind(attr, "href", 0) do
-        {"href", value} -> String.replace(value, "mailto:", "")
-        nil -> ""
-      end
+  defp link({"a", attrs, content}) do
+    text = content |> DOM.text_content() |> String.trim()
 
-    text = DOM.text_content(content)
+    attrs
+    |> List.keyfind("href", 0)
+    |> case do
+      {"href", href} ->
+        href
+        |> String.replace("mailto:", "")
+        |> String.trim()
+        |> link(text)
 
-    link(String.trim(url), String.trim(text))
+      nil ->
+        text
+    end
   end
 
-  defp link(url, text), do: link(url, text, String.downcase(url) == String.downcase(text))
-  defp link(_, "", _), do: ""
-  defp link(url, _, true), do: url
-  defp link(url, text, false), do: "#{text} (#{url})"
+  defp link(_url, ""), do: ""
 
-  defp paragraphs(tree), do: DOM.replace_all_matches(tree, "p", &paragraph(&1))
-  defp paragraph({_, _, content}), do: DOM.text_content(content) <> "\n\n"
-
-  defp horizontal_rules(tree), do: DOM.replace_all_matches(tree, "hr", &horizontal_rule(&1))
-
-  defp horizontal_rule({_, _, _}), do: String.duplicate("-", @line_length) <> "\n\n"
-
-  defp unordered_lists(tree), do: DOM.replace_all_matches(tree, "ul", &unordered_list_items(&1))
-
-  defp unordered_list_items({_, _, items}) do
-    items
-    |> DOM.replace_all_matches("li", &unordered_list_item(&1))
-    |> join_binaries("")
+  defp link(url, text) do
+    case String.downcase(url) == String.downcase(text) do
+      true -> url
+      false -> "#{text} (#{url})"
+    end
   end
 
-  defp unordered_list_item({_, _, content}) do
-    "* " <> DOM.text_content(content) <> "\n"
+  defp paragraphs(tree), do: DOM.replace_all_matches(tree, "p", &paragraph/1)
+
+  defp paragraph({"p", _attrs, content}), do: DOM.text_content(content) <> "\n\n"
+
+  defp horizontal_rules(tree), do: DOM.replace_all_matches(tree, "hr", &horizontal_rule/1)
+
+  defp horizontal_rule({"hr", _attrs, []}), do: String.duplicate("-", @line_length) <> "\n\n"
+
+  defp unordered_lists(tree), do: DOM.replace_all_matches(tree, "ul", &unordered_list/1)
+
+  defp unordered_list({"ul", _attrs, children}) do
+    children
+    |> filter_by_tag("li")
+    |> Enum.map_join(&unordered_list_item/1)
   end
 
-  defp join_binaries(elements, separator) do
-    Enum.reduce(elements, "", fn
-      element, "" when is_binary(element) ->
-        element
+  defp filter_by_tag(elements, tag_or_tags) do
+    tags = List.wrap(tag_or_tags)
 
-      element, acc when is_binary(element) ->
-        acc <> separator <> element
-
-      _element, acc ->
-        acc
+    Enum.filter(elements, fn
+      {tag, _attrs, _children} -> tag in tags
+      _any -> false
     end)
   end
 
-  defp ordered_lists(tree), do: DOM.replace_all_matches(tree, "ol", &ordered_list_items(&1))
+  defp unordered_list_item({"li", _attrs, children}) do
+    "* " <> DOM.text_content(children) <> "\n"
+  end
 
-  defp ordered_list_items({_, _, items}) do
-    items
+  defp ordered_lists(tree), do: DOM.replace_all_matches(tree, "ol", &ordered_list/1)
+
+  defp ordered_list({"ol", _attrs, children}) do
+    children
+    |> filter_by_tag("li")
     |> Enum.with_index(1)
-    |> Enum.map(fn {item, n} ->
-      DOM.replace_all_matches(item, "li", &ordered_list_item(&1, n))
+    |> Enum.map_join(fn {element, n} ->
+      ordered_list_item(element, n)
     end)
-    |> join_binaries("")
   end
 
-  defp ordered_list_item({_, _, content}, n) do
-    "#{n}. " <> DOM.text_content(content) <> "\n"
+  defp ordered_list_item({"li", _attrs, children}, n) do
+    "#{n}. " <> DOM.text_content(children) <> "\n"
   end
 
-  defp tables(tree), do: DOM.replace_all_matches(tree, "table", &table(&1))
+  defp tables(tree), do: DOM.replace_all_matches(tree, "table", &table/1)
 
-  defp table({_, _, table_rows}) do
+  defp table({"table", _attrs, children}) do
     # Calling tables/1 to make sure all nested tables have been processed
-    table_rows
+    children
     |> tables()
     |> flatten_table_elements()
-    |> DOM.replace_all_matches("tr", &table_rows(&1))
-    |> join_binaries("")
+    |> filter_by_tag("tr")
+    |> Enum.map_join(&table_row/1)
   end
 
-  defp table_rows({_, _, [{"th", _, _} | _rest] = table_cells}) do
-    table_cells
-    |> DOM.replace_all_matches("th", &DOM.text_content(&1))
-    |> join_binaries(" ")
-    |> Kernel.<>("\n")
-  end
-
-  defp table_rows({_, _, table_cells}) do
-    table_cells
-    |> DOM.replace_all_matches("td", &DOM.text_content(&1))
-    |> join_binaries(" ")
+  defp table_row({"tr", _attrs, children}) do
+    children
+    |> filter_by_tag(~w(th td))
+    |> Enum.map_join(" ", &DOM.text_content/1)
     |> Kernel.<>("\n")
   end
 
   defp flatten_table_elements(elements), do: Enum.flat_map(elements, &flatten_table_element/1)
 
-  defp flatten_table_element({"thead", _, table_cells}), do: table_cells
-  defp flatten_table_element({"tbody", _, table_cells}), do: table_cells
-  defp flatten_table_element({"tfoot", _, table_cells}), do: table_cells
-  defp flatten_table_element(elem), do: [elem]
+  defp flatten_table_element({"thead", _attrs, children}), do: children
+  defp flatten_table_element({"tbody", _attrs, children}), do: children
+  defp flatten_table_element({"tfoot", _attrs, children}), do: children
+  defp flatten_table_element(element), do: [element]
 
   defp wordwrap(text) do
     text
@@ -190,85 +198,45 @@ defmodule Premailex.HTMLToPlainText do
   defp wrap_paragraph(""), do: ""
 
   defp wrap_paragraph(string) do
-    [word | rest] = String.split(string, ~r/\s+/, trim: true)
+    [word | rest] = String.split(string)
 
-    rest |> lines_assemble(@line_length, String.length(word), word, []) |> Enum.join("\n")
+    rest
+    |> lines_assemble(@line_length, String.length(word), word, [])
+    |> Enum.join("\n")
   end
 
-  defp lines_assemble([], _, _, line, acc), do: [line | acc] |> Enum.reverse()
+  defp lines_assemble([], _max, _line_length, line, acc), do: [line | acc] |> Enum.reverse()
 
   defp lines_assemble([word | rest], max, line_length, line, acc) do
-    if line_length + 1 + String.length(word) > max do
-      lines_assemble(rest, max, String.length(word), word, [line | acc])
-    else
-      lines_assemble(rest, max, line_length + 1 + String.length(word), line <> " " <> word, acc)
+    new_line_length = line_length + 1 + String.length(word)
+
+    case new_line_length > max do
+      true -> lines_assemble(rest, max, String.length(word), word, [line | acc])
+      false -> lines_assemble(rest, max, new_line_length, line <> " " <> word, acc)
     end
   end
 
-  defp clear_linebreaks(text), do: Regex.replace(~r/[\n]{3,}/, text, "\n\n")
+  defp clear_linebreaks(text), do: Regex.replace(~r/\n{3,}/, text, "\n\n")
 
-  defp clear_whitespace(list) when is_list(list) do
-    list = Enum.map(list, &clear_whitespace(&1))
+  defp clear_whitespace(tree) when is_list(tree) do
+    cleared_tree = Enum.map(tree, &clear_whitespace/1)
 
-    list
-    |> Enum.all?(&inline_element?/1)
-    |> case do
-      true -> list
-      false -> Enum.reject(list, &empty?/1)
+    case Enum.all?(cleared_tree, &inline_element?/1) do
+      true -> cleared_tree
+      false -> Enum.reject(cleared_tree, &empty?/1)
     end
   end
 
-  defp clear_whitespace({elem, attr, children}) do
-    {elem, attr, clear_whitespace(children)}
+  defp clear_whitespace({tag, attrs, children}) do
+    {tag, attrs, clear_whitespace(children)}
   end
 
   defp clear_whitespace(any), do: any
 
-  defp empty?(text) when is_binary(text) do
-    String.trim(text) == ""
-  end
-
+  defp empty?(text) when is_binary(text), do: String.trim(text) == ""
   defp empty?(_any), do: false
 
-  @inline_elements [
-    "a",
-    "abbr",
-    "acronym",
-    "b",
-    "bdo",
-    "big",
-    "br",
-    "button",
-    "cite",
-    "code",
-    "dfn",
-    "em",
-    "i",
-    "img",
-    "input",
-    "kbd",
-    "label",
-    "map",
-    "object",
-    "q",
-    "samp",
-    "script",
-    "select",
-    "small",
-    "span",
-    "strong",
-    "sub",
-    "sup",
-    "textarea",
-    "time",
-    "tt",
-    "var"
-  ]
-
-  defp inline_element?({element, _attrs, _children})
-       when element in @inline_elements,
-       do: true
-
-  defp inline_element?({_element, _attrs, _children}), do: false
+  defp inline_element?({tag, _attrs, _children}) when tag in @inline_tags, do: true
+  defp inline_element?({_tag, _attrs, _children}), do: false
   defp inline_element?(_any), do: true
 end

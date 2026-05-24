@@ -10,29 +10,29 @@ This release contains significant performance improvements, with typical HTML em
 
 The layers between parser, DOM operations, and the top-level API have been reshaped:
 
-* `Premailex.HTMLParser` is now a thin behaviour with only `parse/1` and `to_html/1` callbacks
+* `Premailex.HTMLParser` is now a thin behaviour with only `c:Premailex.HTMLParser.parse/1` and `c:Premailex.HTMLParser.to_html/1` callbacks
 * `Premailex.DOM` is a new module that handles all selector matching, traversal, and tree manipulation
 * `Premailex.Util` has been removed with functions moved into `Premailex.DOM`
 * `Premailex.HTMLInlineStyles.process/2` is now a pure tree to tree transformation that accepts an explicit list of CSS rules
 
 ### Breaking changes
 
-* `Premailex.HTMLInlineStyles` no longer exposes `process/3`, use `Premailex.HTMLInlineStyles.process/2`
+* `Premailex.HTMLInlineStyles.process/3` no longer exposed, use `Premailex.HTMLInlineStyles.process/2`
 * `Premailex.HTMLToPlainText.process/1` no longer accepts HTML string
-* `Premailex.HTMLParser` behaviour callback `to_string/1` renamed to `to_html/1`
-* `Premailex.HTMLParser` behaviour no longer requires `all/2`, `filter/2`, or `text/1` callbacks
-* `Premailex.HTMLParser` no longer exposes `parse/1`, use `Premailex.parse/2` instead
-* `Premailex.HTMLParser` no longer exposes `to_string/1`, use `Premailex.to_html/2` instead
-* `Premailex.HTMLParser` no longer exposes `all/2`, use `Premailex.DOM.all/2` instead
-* `Premailex.HTMLParser` no longer exposes `filter/2`, use `Premailex.DOM.reject/2` instead
-* `Premailex.HTMLParser` no longer exposes `text/1`, use `Premailex.DOM.text_content/1` instead
+* `Premailex.HTMLParser` behaviour callback `to_string` renamed to `to_html`
+* `Premailex.HTMLParser` behaviour no longer requires `all`, `filter`, or `text` callbacks
+* `Premailex.HTMLParser` no longer exposes `parse`, use `Premailex.parse/2` instead
+* `Premailex.HTMLParser` no longer exposes `to_string`, use `Premailex.to_html/2` instead
+* `Premailex.HTMLParser` no longer exposes `all`, use `Premailex.DOM.all/2` instead
+* `Premailex.HTMLParser` no longer exposes `filter`, use `Premailex.DOM.reject/2` instead
+* `Premailex.HTMLParser` no longer exposes `text`, use `Premailex.DOM.text_content/1` instead
 * `Premailex.Util` has been removed:
   * `Premailex.Util.traverse/3` is now `Premailex.DOM.replace_all_matches/3`
   * `Premailex.Util.traverse_until_first/3` is now `Premailex.DOM.replace_first_match/3`
-  * `Premailex.Util.traverse_and_update/2` is removed, use `Premailex.DOM.traverse_with_matching_items/3` for indexed single-walk updates
+  * `Premailex.Util.traverse_reduce/3` is removed, use `Premailex.DOM.traverse_with_matching_items/3` for indexed single-walk updates
 * Renamed `Premailex.CSSParser.parse_rules/1` to `Premailex.CSSParser.parse_declaration_block/1`
 * Renamed `Premailex.CSSParser.merge/1` to `Premailex.CSSParser.cascade/1`
-* `Premailex.HTTPAdapter` behaviour's `request/5` callback no longer requires the `Premailex.HTTPAdapter.HTTPResponse` struct in favor of using a map
+* `c:Premailex.HTTPAdapter.request/5` callback no longer requires the `Premailex.HTTPAdapter.HTTPResponse` struct in favor of using a map
 * `Premailex.parse/2` now always returns a list
 * `Floki` minimum version bumped from `~> 0.19` to `~> 0.24`
 * `Premailex.to_inline_css/2` `:optimize` option has been replaced by a single boolean option `:remove_style_tags`

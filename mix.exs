@@ -54,7 +54,8 @@ defmodule Premailex.Mixfile do
         "Sponsor" => "https://github.com/sponsors/danschultzer"
       },
       # Mix task is only for maintainer use and should not be included in release.
-      files: ~w(lib/premailex lib/premailex.ex LICENSE mix.exs README.md priv/entities.txt)
+      files: ~w(CHANGELOG.md lib/premailex lib/premailex.ex
+                LICENSE mix.exs README.md priv/entities.txt)
     ]
   end
 
@@ -62,7 +63,7 @@ defmodule Premailex.Mixfile do
     [
       source_ref: "v#{@version}",
       main: "Premailex",
-      canonical: "http://hexdocs.pm/premailex",
+      canonical: "https://hexdocs.pm/premailex",
       source_url: @source_url,
       extras: [
         "CHANGELOG.md": [filename: "CHANGELOG"]

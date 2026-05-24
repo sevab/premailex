@@ -128,9 +128,9 @@ defmodule Premailex do
   defp do_to_inline_css(tree, options) do
     css_selector = Keyword.get(options, :css_selector, "style,link[rel=\"stylesheet\"][href]")
     css_rules = map_css_rules(tree, css_selector, options)
-    remove_style_tags = Keyword.get(options, :remove_style_tags, false)
 
-    remove_style_tags
+    options
+    |> Keyword.get(:remove_style_tags, false)
     |> case do
       true -> Premailex.DOM.reject(tree, css_selector)
       false -> tree

@@ -23,6 +23,7 @@ defmodule Premailex.HTMLToPlainTextTest do
       <p><a href="http://example.com">http://example.com</a></p>
       <p><a href="http://example.com">HTTP://EXAMPLE.COM</a></p>
       <p><a href="http://example.com"></a></p>
+      <p><a>No href</a></p>
       <p><span>Test</span> some very long paragraph with <strong>bold</strong> and <i>italic</i> text, including an <a href="http://example.com">inline link</a>. This should break up on multiple lines.</p>
       <p><span>Test</span>   <strong>consecutive</strong> <i>tags</i>.</p>
 
@@ -38,6 +39,7 @@ defmodule Premailex.HTMLToPlainTextTest do
       </ul>
       <ol>
         <li>Item 1</li>
+        <!-- This is a comment -->
         <li>Item 2</li>
         <li>Item 3</li>
       </ol>
@@ -126,6 +128,8 @@ defmodule Premailex.HTMLToPlainTextTest do
   http://example.com
 
   http://example.com
+
+  No href
 
   Test some very long paragraph with bold and italic text,
   including an inline link (http://example.com). This should break
