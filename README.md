@@ -80,7 +80,7 @@ It automatically selects the first available parser based on your `mix.exs` depe
 ```elixir
 defp deps do
   [
-    {:premailex, "~> 0.3.20"},
+    {:premailex, "~> 1.0"},
     # {:lazy_html, "~> 0.1.11"},
     # {:floki, "~> 0.24"},
     # {:meeseeks, "~> 0.11"}
@@ -104,7 +104,7 @@ config :premailex, html_parser: Premailex.HTMLParser.LazyHTML
 def deps do
   [
     # ...
-    {:premailex, "~> 0.3.20"},
+    {:premailex, "~> 1.0"},
 
     # Optional, but recommended for SSL validation with :httpc
     {:certifi, "~> 2.4"},

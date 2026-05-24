@@ -2,7 +2,7 @@ defmodule Premailex.Mixfile do
   use Mix.Project
 
   @source_url "https://github.com/danschultzer/premailex"
-  @version "0.3.20"
+  @version "1.0.0"
 
   def project do
     [
