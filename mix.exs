@@ -11,18 +11,6 @@ defmodule Premailex.Mixfile do
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      xref: [
-        exclude: [
-          :certifi,
-          :httpc,
-          Floki,
-          LazyHTML,
-          Meeseeks,
-          Meeseeks.Document,
-          Meeseeks.Selector.CSS,
-          :ssl_verify_hostname
-        ]
-      ],
       dialyzer: [plt_add_apps: [:mix]],
 
       # Hex

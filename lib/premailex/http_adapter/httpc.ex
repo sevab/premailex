@@ -2,10 +2,22 @@ defmodule Premailex.HTTPAdapter.Httpc do
   @moduledoc """
   HTTP adapter module for making http requests with `m::httpc`.
 
-  SSL support will automatically be enabled if the
+  SSL verification is enabled automatically when both
   [`:certifi`](https://hexdocs.pm/certifi/) and
-  [`:ssl_verify_fun`](https://hex.pm/packages/ssl_verify_fun) libraries exists
-  in your project.
+  [`:ssl_verify_fun`](https://hex.pm/packages/ssl_verify_fun) are present at
+  compile time. Add them to your dependencies in `mix.exs`:
+
+      defp deps do
+        [
+          {:certifi, "~> 2.4"},
+          {:ssl_verify_fun, "~> 1.1"}
+        ]
+      end
+
+  If you add them after Premailex has been compiled, recompile it to pick the
+  verification path up:
+
+      mix deps.compile premailex --force
   """
   alias Premailex.HTTPAdapter
 
@@ -28,9 +40,7 @@ defmodule Premailex.HTTPAdapter.Httpc do
     do_httpc_request(url, body, headers)
   end
 
-  defp do_httpc_request(url, nil, headers) do
-    {url, headers}
-  end
+  defp do_httpc_request(url, nil, headers), do: {url, headers}
 
   defp do_httpc_request(url, body, headers) do
     {content_type, headers} = split_content_type_headers(headers)
@@ -62,35 +72,28 @@ defmodule Premailex.HTTPAdapter.Httpc do
   defp parse_httpc_opts(nil, url), do: default_httpc_opts(url)
   defp parse_httpc_opts(opts, _url), do: opts
 
-  defp default_httpc_opts(url) do
-    case certifi_and_ssl_verify_fun_available?() do
-      true -> [ssl: ssl_opts(url)]
-      false -> []
+  if Code.ensure_loaded?(:certifi) and Code.ensure_loaded?(:ssl_verify_hostname) do
+    defp default_httpc_opts(url) do
+      uri = URI.parse(url)
+
+      case uri.scheme do
+        "https" -> [ssl: ssl_opts(uri)]
+        _ -> []
+      end
     end
-  end
 
-  defp certifi_and_ssl_verify_fun_available? do
-    Application.ensure_all_started(:certifi)
-    Application.ensure_all_started(:ssl_verify_fun)
-
-    app_available?(:certifi) && app_available?(:ssl_verify_fun)
-  end
-
-  defp app_available?(app) do
-    case :application.get_key(app, :vsn) do
-      {:ok, _vsn} -> true
-      _ -> false
+    defp ssl_opts(uri) do
+      [
+        verify: :verify_peer,
+        depth: 99,
+        cacerts: :certifi.cacerts(),
+        verify_fun: {&:ssl_verify_hostname.verify_fun/3, check_hostname: to_charlist(uri.host)},
+        customize_hostname_check: [
+          match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+        ]
+      ]
     end
-  end
-
-  defp ssl_opts(url) do
-    %{host: host} = URI.parse(url)
-
-    [
-      verify: :verify_peer,
-      depth: 99,
-      cacerts: :certifi.cacerts(),
-      verify_fun: {&:ssl_verify_hostname.verify_fun/3, check_hostname: to_charlist(host)}
-    ]
+  else
+    defp default_httpc_opts(_url), do: []
   end
 end
