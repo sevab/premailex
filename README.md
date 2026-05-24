@@ -4,23 +4,23 @@
 
 <!-- MDOC !-->
 
-Preflight for your HTML emails. Adds inline styling, and converts HTML to plain text.
+Preflight for your HTML emails. Inlines CSS styles and converts HTML to plain text.
 
 ## Features
 
-* Add inline CSS properties from `<style>`
-* Add inline CSS properties from external `<link>` stylesheets
-* Transform HTML to plain text
+* Inline CSS from `<style>` tags
+* Inline CSS from external `<link>` stylesheets
+* Convert HTML to plain text
 
 ## Usage
 
-Transform an HTML string to text:
+Convert an HTML string to plain text:
 
 ```elixir
 Premailex.to_text(html)
 ```
 
-Add inline styles based on styles defined in `<head>`:
+Inline an HTML string with CSS styles defined in `<head>`:
 
 ```elixir
 Premailex.to_inline_css(html)
@@ -73,7 +73,9 @@ end
 
 ## HTML parser
 
-Premailex supports [`LazyHTML`](https://github.com/dashbitco/lazy_html), [`Floki`](https://github.com/philss/floki), [`Meeseeks`](https://github.com/mischov/meeseeks), and [`:xmerl`](https://www.erlang.org/doc/apps/xmerl/xmerl_ug.html) and will automatically use the first one available based on the dependencies in `mix.exs`:
+Premailex supports [`LazyHTML`](https://github.com/dashbitco/lazy_html), [`Floki`](https://github.com/philss/floki), [`Meeseeks`](https://github.com/mischov/meeseeks), and [`:xmerl`](https://www.erlang.org/doc/apps/xmerl/xmerl_ug.html).
+
+It automatically selects the first available parser based on your `mix.exs` dependencies:
 
 ```elixir
 defp deps do
@@ -112,7 +114,7 @@ def deps do
 end
 ```
 
-Run `mix deps.get` to install it.
+Remember to run `mix deps.get` to install the dependencies.
 
 ## LICENSE
 

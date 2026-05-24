@@ -38,7 +38,7 @@ defmodule PremailexTest do
       assert CaptureLog.capture_log(fn ->
                refute Premailex.to_inline_css(input) =~ "color: black"
              end) =~
-               "Ignoring #{url} styles because of unexpected error from Premailex.HTTPAdapter.Httpc:"
+               "Ignoring #{url} styles due to error in Premailex.HTTPAdapter.Httpc:"
     end
 
     @tag external_css_response: {404, "Not Found"}
@@ -46,7 +46,7 @@ defmodule PremailexTest do
       assert CaptureLog.capture_log(fn ->
                refute Premailex.to_inline_css(input) =~ "color: black"
              end) =~
-               "Ignoring #{TestServer.url("/styles.css")} styles because received unexpected HTTP status: 404"
+               "Ignoring #{TestServer.url("/styles.css")} styles due to unexpected HTTP response status: 404"
     end
 
     @tag external_css_scheme: :https
@@ -79,9 +79,7 @@ defmodule PremailexTest do
     test "with `:css_selector` option only loads matching sources", %{input: input} do
       parsed = Premailex.to_inline_css(input, css_selector: ~s(link[rel="stylesheet"][href]))
 
-      # Link rule still applied
       assert parsed =~ ~s(<html xmlns="http://www.w3.org/1999/xhtml" style="color: black;">)
-      # Style rule filtered out — `<p>` element has no inline style
       refute parsed =~ ~s(<p style=)
     end
 

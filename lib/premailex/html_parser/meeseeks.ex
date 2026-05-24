@@ -27,17 +27,16 @@ if Code.ensure_loaded?(Meeseeks) do
       end
     end
 
-    # Meeseeks wraps all fragments in an <html> element, so we need to unwrap
-    # it if the input was just a fragment.
+    # Meeseeks wraps fragments in an <html> element, so we unwrap it if the
+    # input was a fragment.
     defp unwrap_fragment(tree, html) do
       case Regex.match?(~r/<html/i, html) do
         true ->
           tree
 
         false ->
-          # This may break if Meeseeks changes how it wraps fragments. If it
-          # does this should be moved into a function that handles the
-          # different versions of Meeseeks.
+          # This may break if Meeseeks changes how it wraps fragments. If so,
+          # move this into a function that handles different Meeseeks versions.
           [{"html", [], [{"head", [], []}, {"body", [], fragment}]}] = tree
 
           fragment

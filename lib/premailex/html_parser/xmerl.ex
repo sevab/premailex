@@ -3,34 +3,33 @@ defmodule Premailex.HTMLParser.Xmerl do
   A simple HTML parser using Erlang's built-in `m::xmerl` library.
 
   This is used as a fallback when no other HTML parsing libraries are
-  available. It is designed to handle well-formed XML-like HTML emails, but it
-  does not support real-world HTML that often can be malformed XML.
+  available. It is designed for well-formed XML-like HTML, but it does not
+  support real-world HTML, which is often not valid XML.
 
-  For more robust HTML parsing, it's recommended to use
-  `Premailex.HTMLParser.LazyHTML`, `Premailex.HTMLParser.Floki`, or
-  `Premailex.HTMLParser.Meeseeks`.
+  For more robust HTML parsing, use `Premailex.HTMLParser.LazyHTML`,
+  `Premailex.HTMLParser.Floki`, or `Premailex.HTMLParser.Meeseeks`.
 
-  `m::xmerl_sax_parser` is used to prevent atom leak.
+  `m::xmerl_sax_parser` is used to prevent atom leaks.
 
   ## Parser limitations
 
-    * Only well-formed XML-like HTML is parsed. HTML5 shortcuts like unquoted
-      attribute values (`<div data-x=a>`) or unclosed non-void tags are
+    * Only well-formed XML-like HTML is supported. HTML5 syntax such as
+      unquoted attribute values (`<div data-x=a>`) or unclosed non-void tags is
       rejected.
 
     * A round-trip through this parser is not lossless:
 
-      * XML normalises whitespace in attribute values (newlines/tabs become
+      * XML normalises whitespace in attribute values (newlines and tabs become
         spaces).
 
-      * Named entities decode to characters and serialise as the literal
+      * Named entities are decoded to characters and serialized as the literal
         character (e.g. `&copy;` round-trips as `©`).
 
       * `xmlns:*` namespace declarations always appear first in the attribute
-        list regardless of source position as `m::xmerl_sax_parser` strips them
+        list, regardless of source position (`m::xmerl_sax_parser` removes them
         from the element's attribute list).
 
-      * Void elements always serialise as `<br>` (HTML style) regardless of
+      * Void elements always serialize as `<br>` (HTML style), regardless of
         whether the source used `<br/>`.
   """
   @behaviour Premailex.HTMLParser
@@ -39,8 +38,8 @@ defmodule Premailex.HTMLParser.Xmerl do
   @comment_tag "premailex-comment"
   @void_tags ~w(area base br col embed hr img input link meta param source track wbr)
 
-  # This regex is to ensure we get all void tags that are not closed, as xmerl
-  # will fail if the void tags are not properly closed.
+  # This regex ensures all void tags are captured when unclosed, as xmerl fails
+  # if void tags are not properly closed.
   @void_tags_regex Regex.compile!(
                      ~s{<(#{Enum.join(@void_tags, "|")})(\\b(?:\\s(?:[^"'>]|"[^"]*"|'[^']*')*)?)>},
                      "i"
@@ -100,7 +99,7 @@ defmodule Premailex.HTMLParser.Xmerl do
     opts = [
       event_fun: &sax_event/3,
       event_state: %{stack: [], result: nil, namespace_attrs: []},
-      # HTML entities are handled separately in `replace_html_entities/1`.
+      # HTML entities are handled with `replace_html_entities/1`.
       external_entities: :none,
       fail_undeclared_ref: false
     ]
@@ -114,7 +113,7 @@ defmodule Premailex.HTMLParser.Xmerl do
               """
               #{__MODULE__} could not parse the HTML.
 
-              The built-in fallback parser only supports simple, XML-like HTML email markup.
+              The built-in fallback parser only supports simple, XML-like HTML
               For more permissive HTML parsing, add LazyHTML, Floki, or Meeseeks to your dependencies.
 
               Original error: #{inspect(reason)}

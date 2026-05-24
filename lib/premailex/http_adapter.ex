@@ -14,7 +14,7 @@ defmodule Premailex.HTTPAdapter do
         end
       end
 
-  Then, configure Premailex to use your custom adapter:
+  Configure Premailex to use a custom adapter:
 
       config :premailex,
         http_adapter: MyHTTPAdapter
@@ -24,7 +24,10 @@ defmodule Premailex.HTTPAdapter do
   @type body :: binary() | nil
   @type headers :: [{binary(), binary()}]
 
-  @typedoc "An HTTP response returned by an adapter's `request/5` callback."
+  @typedoc """
+  An HTTP response returned by an adapter's `c:request/5`
+  callback.
+  """
   @type response :: %{
           status: non_neg_integer(),
           headers: headers(),
@@ -37,6 +40,9 @@ defmodule Premailex.HTTPAdapter do
   @callback request(method(), binary(), body(), headers(), Keyword.t()) ::
               {:ok, response()} | {:error, any()}
 
+  @doc """
+  Returns a `User-Agent` header tuple for use in HTTP requests.
+  """
   @spec user_agent_header() :: {binary(), binary()}
   def user_agent_header do
     version = Application.spec(:premailex, :vsn) || "0.0.0"

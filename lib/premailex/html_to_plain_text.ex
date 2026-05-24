@@ -1,6 +1,6 @@
 defmodule Premailex.HTMLToPlainText do
   @moduledoc """
-  Module that converts HTML emails to plain text.
+  Converts `t:Premailex.html_tree/0` into plain text.
   """
   alias Premailex.DOM
 
@@ -12,7 +12,7 @@ defmodule Premailex.HTMLToPlainText do
                   strong sub sup textarea time tt var)
 
   @doc """
-  Processes an HTML tree into a plain text string.
+  Converts a `t:Premailex.html_tree/0` into a plain text string.
 
   ## Examples
 
@@ -167,7 +167,7 @@ defmodule Premailex.HTMLToPlainText do
   defp tables(tree), do: DOM.replace_all_matches(tree, "table", &table/1)
 
   defp table({"table", _attrs, children}) do
-    # Calling tables/1 to make sure all nested tables have been processed
+    # Calling tables/1 to make sure all nested tables have been processed first
     children
     |> tables()
     |> flatten_table_elements()

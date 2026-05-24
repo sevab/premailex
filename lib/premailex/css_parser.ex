@@ -1,14 +1,15 @@
 defmodule Premailex.CSSParser do
   @moduledoc """
-  CSS parser used by Premailex.
+  CSS parser.
 
   ## Parser limitations
 
     * At-rules (`@media`, `@font-face`, `@import`, etc.) and comments are
       stripped.
-    * Specificity for `:not(...)`, `:is(...)`, `:where(...)` is approximated
-      as a single pseudo-class, though Selectors Level 4 needs the specificity
-      inherited from their argument (or `0` for `:where`).
+
+    * Specificity for `:not(...)`, `:is(...)`, and `:where(...)` is approximated
+      as a single pseudo-class. In Selectors Level 4, specificity is derived from
+      the argument (or is `0` for `:where`).
   """
   require Logger
 
@@ -22,9 +23,9 @@ defmodule Premailex.CSSParser do
   A CSS pseudo-class or pseudo-element.
 
   Pseudo-classes in the `an+b` family (`:nth-child`, `:nth-of-type`,
-  `:nth-last-child`, `:nth-last-of-type`) carry an additional `:nth` field
-  holding the parsed `{a, b}` coefficients, or `:invalid` if the expression
-  was missing or could not be parsed.
+  `:nth-last-child`, `:nth-last-of-type`) include an additional `:nth` field
+  holding the parsed `{a, b}` coefficients, or `:invalid` if the expression is
+  missing or cannot be parsed.
   """
   @type pseudo :: %{
           required(:name) => String.t(),
@@ -45,18 +46,18 @@ defmodule Premailex.CSSParser do
           combinator: :descendant | :child | :adjacent | :sibling | :column | nil
         }
 
-  @typedoc "A list of selector steps, ordered right to left."
+  @typedoc "A list of selector steps ordered from right to left."
   @type selector_group :: [selector_group_step()]
 
   @typedoc """
-  CSS specificity, matching the Selectors Level 4 4-tuple model.
+  CSS specificity, matching the Selectors Level 4 four-tuple model.
 
   Structured as `{inline?, ids, classes, elements}`:
 
-    * `inline?` — `1` if it's an inlined style.
-    * `ids` — count of ID selectors.
-    * `classes` — count of class, attribute, and pseudo-class selectors.
-    * `elements` — count of tag and pseudo-element selectors.
+    * `inline?` - `1` if the style is inline.
+    * `ids` - number of ID selectors.
+    * `classes` - number of class, attribute, and pseudo-class selectors.
+    * `elements` - number of tag and pseudo-element selectors.
   """
   @type specificity :: {0..1, non_neg_integer(), non_neg_integer(), non_neg_integer()}
 
@@ -78,8 +79,8 @@ defmodule Premailex.CSSParser do
   @doc """
   Parses a CSS string into a list of CSS rules.
 
-  Ignores all at-rules (e.g. `@media`, `@font-face`, etc.) and comments, as
-  these are not relevant for inlining CSS.
+  Ignores at-rules (e.g. `@media`, `@font-face`, etc.) and comments, as they
+  are not relevant for inlining CSS.
 
   ## Examples
 
@@ -402,11 +403,11 @@ defmodule Premailex.CSSParser do
   @doc """
   Parses a selector string into a list of selector groups.
 
-  The selector groups are represented as lists of steps, where each step is a
-  map containing the tag, id, classes, attributes, pseudo-classes/elements, and
-  combinator for that step. The steps are ordered from right to left.
+  Each selector group is a list of steps, where each step is a map containing
+  the tag, id, classes, attributes, pseudo-classes/elements, and combinator.
+  Steps are ordered right to left.
 
-  Selectors that fail to parse are dropped with a debug log.
+  Selectors that fail to parse are dropped and a debug log is emitted.
 
   ## Examples
 
@@ -861,7 +862,10 @@ defmodule Premailex.CSSParser do
   defp parse_anb_eof(_, _), do: :invalid
 
   @doc """
-  Parses a CSS declaration block string into a list of maps.
+  Parses a CSS declaration block string into a list of declarations.
+
+  Each declaration is a map containing the property, value, and a `!important`
+  flag.
 
   ## Examples
 
@@ -1002,11 +1006,13 @@ defmodule Premailex.CSSParser do
   end
 
   @doc """
-  Combines CSS rules into a final list of declarations.
+  Combines CSS rules into a final list of declarations using the CSS Cascade
+  Level 4 algorithm.
 
-  Uses the [cascade algorithm](https://www.w3.org/TR/css-cascade-4/#cascading).
   Conflicts between declarations for the same property are resolved by
   `!important` and then by specificity.
+
+  See https://www.w3.org/TR/css-cascade-4/#cascading for details.
 
   ## Examples
 
@@ -1047,7 +1053,7 @@ defmodule Premailex.CSSParser do
   end
 
   @doc """
-  Transforms a CSS rule declaration or a list of declarations into a string.
+  Converts a rule declaration or list of declarations into a string.
 
   ## Examples
 

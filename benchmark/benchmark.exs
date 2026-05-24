@@ -8,9 +8,9 @@ defmodule Benchmark do
 
   ## Options
 
-    * `:extra_columns` — extra column definitions inserted between
+    * `:extra_columns` - extra column definitions inserted between
       `nodes` and `time (ms)`, in the shape `{name, width,
-      :left | :right}`.
+      :left | :right}`;
   """
   def run!(cases, opts \\ []) do
     extra_columns = Keyword.get(opts, :extra_columns, [])
@@ -40,7 +40,7 @@ defmodule Benchmark do
   defp init!(columns) do
     html_parser =
       System.get_env("HTML_PARSER") ||
-        raise "Please specify HTML_PARSER environment variable, e.g. `HTML_PARSER=Xmerl`"
+        raise "Missing HTML_PARSER environment variable. Set it, e.g. `HTML_PARSER=Xmerl`."
 
     Application.put_env(
       :premailex,

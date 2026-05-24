@@ -29,12 +29,12 @@ if Code.ensure_loaded?(Floki) do
       end
     end
 
-    # Floki strips whitespace text nodes between tags which causes errors like:
-    # https://github.com/mochi/mochiweb/issues/166
-    # To prevent that and preserve whitespaces this encodes each whitespace
-    # character as a numeric HTML entity so Floki's parser treats them as
-    # content and preserves them. This keeps it consistent with the other
-    # HTML parsers.
+    # Floki strips whitespace text nodes between tags, which can cause errors
+    # such as: https://github.com/mochi/mochiweb/issues/166
+    #
+    # To both prevent this and preserve whitespace like other HTML parsers,
+    # each whitespace character is encoded as a numeric HTML entity so Floki's
+    # parser treats it as content.
     defp retain_inline_whitespace(html) do
       Regex.replace(~r/>(\s+)</, html, fn _full, whitespace ->
         encoded = for <<char <- whitespace>>, into: "", do: "&##{char};"

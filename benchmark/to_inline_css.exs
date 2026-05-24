@@ -5,7 +5,7 @@ defmodule Benchmark.ToInlineCSS do
   @moduledoc """
   Benchmarks `Premailex.to_inline_css/1` across two scenarios.
 
-    * `common` — Matrix spans four email categories:
+    * `common` - Matrix spans four email categories:
 
         Type                        DOM nodes    CSS rules
         Plain transactional         80–250       20–80
@@ -17,7 +17,7 @@ defmodule Benchmark.ToInlineCSS do
       is filled with whole sections and then padded with single-node `<p>` chunks
       until the target is met.
 
-    * `wildcard` — Worst case cascade where every rule matches every tag.
+    * `wildcard` - Worst case cascade where every rule matches every tag.
 
   Run with:
 

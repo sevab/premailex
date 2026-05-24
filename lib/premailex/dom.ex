@@ -4,7 +4,7 @@ defmodule Premailex.DOM do
                                nth-of-type nth-last-child nth-last-of-type)
 
   @moduledoc """
-  DOM manipulation engine.
+  DOM manipulation.
 
   Supports the following pseudo-classes: #{Enum.map_join(@supported_pseudo_classes, ", ", &"`:#{&1}`")}.
 
@@ -13,14 +13,15 @@ defmodule Premailex.DOM do
 
   ## Selector support limitations
 
-    * Pseudo-classes not supported will never match and emit a debug log.
+    * Pseudo-classes that are not supported will never match and will emit a
+      debug log.
 
-    * Functional pseudo-classes that take arguments don't support the
-      `of <complex-selector-list>` clause — the entire expression is treated as
+    * Functional pseudo-classes that take arguments do not support the
+      `of <complex-selector-list>` clause; the entire expression is treated as
       invalid and the rule is ignored.
 
-    * The column combinator (`||`) parses but never matches and emits a
-      debug log.
+    * The column combinator (`||`) parses but never matches and emits a debug
+      log.
   """
 
   alias Premailex.CSSParser
@@ -32,20 +33,20 @@ defmodule Premailex.DOM do
   @type selector :: String.t()
 
   @typedoc """
-  A selector item is a map that has a `:selector` key.
+  A selector item is a map that contains a `:selector` key.
 
-  Any additional keys callers attach are preserved across the traversal and
-  passed back as part of the matched selector items in
+  Any additional keys attached by the caller are preserved during traversal
+  and returned as part of the matched selector items in the
   `traverse_with_matching_items/3` callback.
   """
   @type selector_item :: %{required(:selector) => selector(), optional(any) => any}
 
   @doc """
-  Traverses element tree searching for needle, and will call provided function
-  on any occurrences.
+  Traverses HTML elements searching for needles and calls the provided function
+  on each match.
 
-  The element tree will be traversed depth-first, and the function will be
-  called on every node matching a needle, replacing each with the result.
+  The elements are traversed depth-first, replacing each matching node with the
+  function's return value.
 
   ## Examples
 
@@ -89,10 +90,10 @@ defmodule Premailex.DOM do
   defp do_replace_all_matches(other, _needles, _fun), do: other
 
   @doc """
-  Traverses tree until first match for needle.
+  Traverses HTML elements until the first match of a needle.
 
-  The tree will be traversed depth-first, and the function will be called on
-  the first node matching a needle, replacing it with the result.
+  The elements are traversed depth-first, and the first matching node is
+  replaced with the function's return value.
 
   ## Examples
 
@@ -146,8 +147,9 @@ defmodule Premailex.DOM do
   end
 
   @doc """
-  Traverses element tree calling the function on every element that matches one
-  or more selector items, replacing it with the result.
+  Traverses HTML elements, calling the provided function on each element
+  matching one or more selector items and replacing it with the function's
+  return value.
 
   ## Examples
 
@@ -328,8 +330,9 @@ defmodule Premailex.DOM do
     }
   end
 
-  # Items can appear more than once if their selector had comma-separated
-  # groups that landed in different buckets — callers should expect duplicates.
+  # Items may appear more than once if their selector contains comma-separated
+  # groups that produce different match items; callers should expect
+  # duplicates.
   defp applicable_selector_items(selector_items_table, tag, attrs) do
     selector_items_table.universal
     |> prepend_selector_items(selector_items_table.by_tag, tag)
@@ -445,7 +448,7 @@ defmodule Premailex.DOM do
     rem(diff, a) == 0 and div(diff, a) >= 0
   end
 
-  # Any pseudos that can't be parsed properly are treated as invalid and never match.
+  # Any pseudos that cannot be parsed are treated as invalid and never match.
   defp matches_nth?(_position, :invalid), do: false
 
   defp match_remaining_selector_steps?([], _context, _ancestors), do: true
@@ -495,7 +498,7 @@ defmodule Premailex.DOM do
   end
 
   @doc """
-  Returns the list of elements in a tree that matches the selector.
+  Returns a list of HTML elements matching the selector.
 
   ## Examples
 
@@ -543,11 +546,11 @@ defmodule Premailex.DOM do
   end
 
   @doc """
-  Filters elements matching the selector out of the tree, collapsing
+  Filters HTML elements matching the selector from the tree, collapsing
   redundant whitespace text nodes left behind.
 
   Always returns a `t:Premailex.html_tree/0`, even when a single element is
-  passed in — if that element matches the selector the result is `[]`.
+  passed in; if that element matches the selector, the result is `[]`.
 
   ## Examples
 
@@ -582,7 +585,7 @@ defmodule Premailex.DOM do
   end
 
   @doc """
-  Extracts the concatenated text from the element.
+  Extracts and concatenates the text content from HTML elements.
 
   ## Examples
 

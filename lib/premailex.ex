@@ -4,10 +4,10 @@ defmodule Premailex do
              |> File.read!()
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
-             # Replace markdown linked HexDocs cross-references with just the
-             # reference so ExDoc can link them properly.
+             # Replace Markdown-linked HexDocs cross-references with plain
+             # references so ExDoc can resolve links correctly.
              |> then(&Regex.replace(~r/\[(`[^`]+`)\]\([^)]+\)/, &1, "\\1"))
-             # Replace OTP module references with links to the OTP docs.
+             # Convert Markdown OTP module references to ExDoc format.
              |> then(&Regex.replace(~r/`(:[a-z]+)`/, &1, "`m:\\1`"))
 
   require Logger
@@ -18,12 +18,11 @@ defmodule Premailex do
   @type html_tree :: [html_node()]
 
   @doc """
-  Parses an HTML string into the Premailex tree shape.
+  Parses an HTML string into a `t:html_tree/0`.
 
   ## Options
 
-    * `:html_parser` - the HTML parser to use (see `Premailex.HTMLParser`
-      for details);
+    * `:html_parser` - HTML parser to use (see `Premailex.HTMLParser`);
 
   ## Examples
 
@@ -40,7 +39,7 @@ defmodule Premailex do
   defp html_parser do
     case Application.get_env(:premailex, :html_parser) || default_html_parser() do
       mod when is_atom(mod) -> mod
-      other -> raise "Invalid html_parser, got: #{inspect(other)}"
+      other -> raise "Invalid `:html_parser` environment value: #{inspect(other)}"
     end
   end
 
@@ -61,12 +60,11 @@ defmodule Premailex do
   end
 
   @doc """
-  Serialises a Premailex tree back into an HTML string.
+  Converts a `t:html_tree/0` into an HTML string.
 
   ## Options
 
-    * `:html_parser` - the HTML parser to use (see `Premailex.HTMLParser` for
-      details);
+    * `:html_parser` - HTML parser to use (see `Premailex.HTMLParser`);
 
   ## Examples
 
@@ -81,14 +79,15 @@ defmodule Premailex do
   end
 
   @doc """
-  Adds inline styles to an HTML string.
+  Adds inline styles to an HTML string or `t:html_tree/0`.
 
   ## Options
 
-    * `:html_parser` - the HTML parser to use (see `Premailex.HTMLParser`
-      for details);
-    * `:http_adapter` - the HTTP adapter to use for fetching external
-      stylesheets (see `Premailex.HTTPAdapter` for details);
+    * `:html_parser` - HTML parser to use (see `Premailex.HTMLParser`);
+
+    * `:http_adapter` - HTTP adapter to use for fetching external stylesheets
+      (see `Premailex.HTTPAdapter`);
+
     * `:remove_style_tags` - whether to remove the `<style>` and `<link>` tags
       after inlining. Defaults to false;
 
@@ -96,14 +95,14 @@ defmodule Premailex do
 
       iex> Premailex.to_inline_css(
       ...> ~s(<html><head>
-      ...> <style>p{background-color: #fff;}</style>
+      ...>   <style>p{background-color: #fff;}</style>
       ...> </head><body>
-      ...> <p style="color: #000;">Text</p>
+      ...>   <p style="color: #000;">Text</p>
       ...> </body></html>))
       ~s(<html><head>
-       <style>p{background-color: #fff;}</style>
+         <style>p{background-color: #fff;}</style>
        </head><body>
-       <p style="background-color: #fff; color: #000;">Text</p>
+         <p style="background-color: #fff; color: #000;">Text</p>
        </body></html>)
   """
   @spec to_inline_css(html() | html_tree(), Keyword.t()) :: html()
@@ -172,15 +171,13 @@ defmodule Premailex do
         body
 
       {:ok, %{status: status}} ->
-        Logger.warning(
-          "Ignoring #{url} styles because received unexpected HTTP status: #{status}"
-        )
+        Logger.warning("Ignoring #{url} styles due to unexpected HTTP response status: #{status}")
 
         ""
 
       {:error, error} ->
         Logger.warning(
-          "Ignoring #{url} styles because of unexpected error from #{inspect(http_adapter)}:\n\n#{inspect(error)}"
+          "Ignoring #{url} styles due to error in #{inspect(http_adapter)}:\n\n#{inspect(error)}"
         )
 
         ""
@@ -188,24 +185,20 @@ defmodule Premailex do
   end
 
   @doc """
-  Turns HTML to plain text.
+  Converts an HTML string or `t:html_tree/0` to plain text.
 
   ## Options
 
-    * `:html_parser` - the HTML parser to use (see `Premailex.HTMLParser`
-      for details);
+    * `:html_parser` - HTML parser to use (see `Premailex.HTMLParser`);
 
   ## Examples
 
       iex> Premailex.to_text(
-      ...> ~s(<html>
-      ...>   <head>
-      ...>     <style>p{background-color:#fff;}</style>
-      ...>   </head>
-      ...>   <body>
-      ...>     <p style="color:#000;">Text</p>
-      ...>   </body>
-      ...> </html>))
+      ...> ~s(<html><head>
+      ...>   <style>p{background-color:#fff;}</style>
+      ...> </head><body>
+      ...>   <p style="color:#000;">Text</p>
+      ...> </body></html>))
       "Text"
   """
   @spec to_text(html() | html_tree(), Keyword.t()) :: String.t()

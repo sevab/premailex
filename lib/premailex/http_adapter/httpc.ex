@@ -1,6 +1,6 @@
 defmodule Premailex.HTTPAdapter.Httpc do
   @moduledoc """
-  HTTP adapter module for making http requests with `m::httpc`.
+  HTTP adapter module for making HTTP requests with `m::httpc`.
 
   SSL verification is enabled automatically when both
   [`:certifi`](https://hexdocs.pm/certifi/) and
@@ -14,8 +14,8 @@ defmodule Premailex.HTTPAdapter.Httpc do
         ]
       end
 
-  If you add them after Premailex has been compiled, recompile it to pick the
-  verification path up:
+  If these dependencies are added after Premailex has been compiled,
+  recompile Premailex to enable SSL verification support:
 
       mix deps.compile premailex --force
   """

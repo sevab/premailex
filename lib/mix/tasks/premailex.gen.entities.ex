@@ -4,9 +4,9 @@ if Code.ensure_loaded?(JSON) do
 
     @moduledoc """
     Downloads the canonical WHATWG HTML entities JSON and converts it to the
-    flat text format read by `Premailex.HTMLParser.Xmerl`.
+    flat text format used by `Premailex.HTMLParser.Xmerl`.
 
-    Not included in releases and only used by maintainers.
+    This mix task is not included in releases and is only used by maintainers.
 
     ## Examples
 
@@ -14,8 +14,8 @@ if Code.ensure_loaded?(JSON) do
 
     ## Command line options
 
-      * `--url` - the URL to download the entities JSON from (defaults to the WHATWG reference)
-      * `--output` - the path to write the output file to (defaults to `priv/entities.txt`)
+      * `--url` - URL to download the entities JSON from (defaults to the WHATWG reference)
+      * `--output` - output file path (defaults to `priv/entities.txt`)
     """
     use Mix.Task
 

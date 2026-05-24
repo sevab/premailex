@@ -1,6 +1,6 @@
 defmodule Premailex.HTMLInlineStyles do
   @moduledoc """
-  Module that inlines CSS styles into an HTML tree.
+  Inlines CSS styles into a `t:Premailex.html_tree/0`.
   """
 
   alias Premailex.{CSSParser, DOM}
@@ -8,7 +8,8 @@ defmodule Premailex.HTMLInlineStyles do
   @inline_style_specificity {1, 0, 0, 0}
 
   @doc """
-  Processes an HTML tree adding inline styles from a list of CSS rules.
+  Adds inline styles from CSS rules (`t:CSSParser.rule/0`) to a
+  `t:Premailex.html_tree/0`.
 
   ## Examples
 

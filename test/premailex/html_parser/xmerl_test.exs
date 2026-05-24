@@ -45,6 +45,10 @@ defmodule Premailex.HTMLParser.XmerlTest do
       assert_raise ArgumentError, ~r/could not parse the HTML/, fn ->
         Xmerl.parse("<html><body><div><p>broken</div></body></html>")
       end
+
+      assert_raise ArgumentError, ~r/could not parse the HTML/, fn ->
+        Xmerl.parse("<p data-x=a>Paragraph</p>")
+      end
     end
 
     test "with namespaced elements and attributes" do

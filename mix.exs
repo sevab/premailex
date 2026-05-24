@@ -53,7 +53,8 @@ defmodule Premailex.Mixfile do
         "GitHub" => @source_url,
         "Sponsor" => "https://github.com/sponsors/danschultzer"
       },
-      # Mix task is only for maintainer use and should not be included in release.
+      # Mix task is only for maintainer use and should not be included in
+      # the release.
       files: ~w(CHANGELOG.md lib/premailex lib/premailex.ex
                 LICENSE mix.exs README.md priv/entities.txt)
     ]
