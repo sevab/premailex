@@ -17,6 +17,7 @@ CI runs the [full matrix](.github/workflows/ci.yml) across `LazyHTML`, `Floki`, 
 Elixir formatter, `Credo`, and `:dialyzer` are used:
 
 ```bash
+mix compile --warnings-as-errors
 mix format --check-formatted
 mix credo --strict
 mix dialyzer
