@@ -59,6 +59,34 @@ defmodule Premailex.HTMLParser.MeeseeksTest do
              ]
     end
 
+    test "with document fragment starting with head level content" do
+      assert Meeseeks.parse("<style>p{color:red}</style><p>Hi</p>") == [
+               {"style", [], ["p{color:red}"]},
+               {"p", [], ["Hi"]}
+             ]
+
+      assert Meeseeks.parse(~s(<meta charset="utf-8"><p>Hi</p>)) == [
+               {"meta", [{"charset", "utf-8"}], []},
+               {"p", [], ["Hi"]}
+             ]
+
+      assert Meeseeks.parse("<title>Page</title><p>Hi</p>") == [
+               {"title", [], ["Page"]},
+               {"p", [], ["Hi"]}
+             ]
+
+      assert Meeseeks.parse(~s(<link rel="stylesheet" href="/a.css"><p>Hi</p>)) == [
+               {"link", [{"rel", "stylesheet"}, {"href", "/a.css"}], []},
+               {"p", [], ["Hi"]}
+             ]
+
+      assert Meeseeks.parse("<style>p{color:red}</style>\n<p>Hi</p>") == [
+               {"style", [], ["p{color:red}"]},
+               "\n",
+               {"p", [], ["Hi"]}
+             ]
+    end
+
     test "with invalid HTML" do
       assert_raise ArgumentError, ~r/Meeseeks failed to parse HTML/, fn ->
         Meeseeks.parse(<<0xFF, 0xFE>>)

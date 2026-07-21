@@ -35,13 +35,21 @@ if Code.ensure_loaded?(Meeseeks) do
           tree
 
         false ->
-          # This may break if Meeseeks changes how it wraps fragments. If so,
-          # move this into a function that handles different Meeseeks versions.
-          [{"html", [], [{"head", [], []}, {"body", [], fragment}]}] = tree
-
-          fragment
+          # Head level content, such as <style>, <meta>, <link> and <title>, is
+          # parsed into the <head> element, so the children of both <head> and
+          # <body> are kept. Source order is preserved as <head> always precedes
+          # <body>.
+          Enum.flat_map(tree, &unwrap_fragment_node/1)
       end
     end
+
+    defp unwrap_fragment_node({"html", _attrs, children}),
+      do: Enum.flat_map(children, &unwrap_fragment_node/1)
+
+    defp unwrap_fragment_node({tag, _attrs, children}) when tag in ["head", "body"],
+      do: children
+
+    defp unwrap_fragment_node(node), do: [node]
 
     @impl true
     @doc false
