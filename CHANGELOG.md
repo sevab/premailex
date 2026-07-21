@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bug fixes
+
+* `Premailex.HTMLParser.Meeseeks.parse/1` no longer raises `MatchError` for document fragments that contains head level content such as `<style>`, `<meta>`, `<link>`, or `<title>`
+
 ## v1.0.0 (2026-05-24)
 
 Requires Elixir 1.15 or higher.

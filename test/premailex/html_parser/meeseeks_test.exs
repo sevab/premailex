@@ -57,6 +57,17 @@ defmodule Premailex.HTMLParser.MeeseeksTest do
                {"p", [], ["there"]},
                "\t\n"
              ]
+
+      assert Meeseeks.parse("<style>p{color:red}</style><p>Hi</p>") == [
+               {"style", [], ["p{color:red}"]},
+               {"p", [], ["Hi"]}
+             ]
+
+      assert Meeseeks.parse(~s(<link rel="stylesheet" href="/a.css">\n<p>Hi</p>)) == [
+               {"link", [{"rel", "stylesheet"}, {"href", "/a.css"}], []},
+               "\n",
+               {"p", [], ["Hi"]}
+             ]
     end
 
     test "with invalid HTML" do
