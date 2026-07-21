@@ -4,7 +4,7 @@
 
 ### Bug fixes
 
-* `Premailex.HTMLParser.Meeseeks.parse/1` no longer raises `MatchError` for document fragments that begin with head level content, such as `<style>`, `<meta>`, `<link>`, or `<title>`
+* `Premailex.HTMLParser.Meeseeks.parse/1` no longer raises `MatchError` for document fragments that contains head level content such as `<style>`, `<meta>`, `<link>`, or `<title>`
 
 ## v1.0.0 (2026-05-24)
 

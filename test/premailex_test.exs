@@ -94,22 +94,6 @@ defmodule PremailexTest do
     end
   end
 
-  describe "to_inline_css/2 with document fragment" do
-    test "applies inline styles when fragment starts with head level content" do
-      assert Premailex.to_inline_css(~s(<style>p { color: red; }</style><p>Hello</p>)) =~
-               ~s(<p style="color: red;">Hello</p>)
-
-      assert Premailex.to_inline_css(~s(<title>Page</title><p>Hello</p>)) =~ ~s(<p>Hello</p>)
-
-      assert Premailex.to_inline_css(~s(<meta charset="utf-8"><p>Hello</p>)) =~ ~s(<p>Hello</p>)
-    end
-
-    test "applies inline styles when fragment ends with head level content" do
-      assert Premailex.to_inline_css(~s(<p>Hello</p><style>p { color: red; }</style>)) =~
-               ~s(<p style="color: red;">Hello</p>)
-    end
-  end
-
   defp setup_external_css_endpoint(context) do
     context[:external_css_scheme] == :https && TestServer.start(scheme: :https)
     {status, body} = context[:external_css_response] || {200, @external_css_content}

@@ -27,29 +27,21 @@ if Code.ensure_loaded?(Meeseeks) do
       end
     end
 
-    # Meeseeks wraps fragments in an <html> element, so we unwrap it if the
-    # input was a fragment.
+    # Meeseeks wraps fragments in an <html> with <head> and <body> tags, so we
+    # must unwrap it if the input was a fragment.
     defp unwrap_fragment(tree, html) do
       case Regex.match?(~r/<html/i, html) do
         true ->
           tree
 
         false ->
-          # Head level content, such as <style>, <meta>, <link> and <title>, is
-          # parsed into the <head> element, so the children of both <head> and
-          # <body> are kept. Source order is preserved as <head> always precedes
-          # <body>.
-          Enum.flat_map(tree, &unwrap_fragment_node/1)
+          # This may break if Meeseeks changes how it wraps fragments. If so,
+          # move this into a function that handles different Meeseeks versions.
+          [{"html", [], [{"head", [], head}, {"body", [], body}]}] = tree
+
+          head ++ body
       end
     end
-
-    defp unwrap_fragment_node({"html", _attrs, children}),
-      do: Enum.flat_map(children, &unwrap_fragment_node/1)
-
-    defp unwrap_fragment_node({tag, _attrs, children}) when tag in ["head", "body"],
-      do: children
-
-    defp unwrap_fragment_node(node), do: [node]
 
     @impl true
     @doc false
